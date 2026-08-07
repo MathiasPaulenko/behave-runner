@@ -1,5 +1,5 @@
-"""behave-runner — CLI completa para Behave con subcomandos."""
+"""behave-runner — A unified CLI for the Behave BDD ecosystem."""
 
 from __future__ import annotations
 
-__version__ = "1.0.1"
+__version__ = "1.1.0"
