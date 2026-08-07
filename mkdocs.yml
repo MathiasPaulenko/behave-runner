@@ -1,5 +1,5 @@
 site_name: behave-runner
-site_description: CLI completa para Behave con subcomandos — punto de entrada unificado del ecosistema BehaveLib
+site_description: A unified CLI entry point for the Behave BDD ecosystem with subcommands for running, listing, selecting, linting, formatting, watching, reporting and more.
 site_author: Mathias Paulenko
 site_url: https://mathiaspaulenko.github.io/behave-runner/
 repo_url: https://github.com/MathiasPaulenko/behave-runner

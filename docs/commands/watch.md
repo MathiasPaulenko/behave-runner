@@ -16,7 +16,7 @@ behave-runner watch [OPTIONS] [FEATURES]...
 
 ## Options
 
-| Flag | Tipo | Default | Descripción |
+| Flag | Type | Default | Descripción |
 | ------ | ------ | --------- | ------------- |
 | `[FEATURES]...` | PATH | `features` | Feature paths to watch and run. |
 | `--tags` `-t` | TEXT | None | Filter by tags. |

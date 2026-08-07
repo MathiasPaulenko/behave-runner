@@ -16,7 +16,7 @@ behave-runner init [OPTIONS] [ARGS]...
 
 ## Options
 
-| Flag | Tipo | Default | Descripción |
+| Flag | Type | Default | Description |
 | --- | --- | --- | --- |
 | `--name` | TEXT | None | Project name for the generated structure. |
 | `[ARGS]...` | TEXT | None | Additional arguments for `behave-gen`. |
@@ -28,10 +28,10 @@ behave-runner init [OPTIONS] [ARGS]...
 behave-runner init
 
 # Initialize a named project
-behave-runner init my-project
+behave-runner init --name my-project
 
 # Initialize with extra behave-gen arguments
-behave-runner init --name my-project --template minimal
+behave-runner init --name my-project -- --template minimal
 ```
 
 ## Dependencies

@@ -16,7 +16,7 @@ behave-runner impact [OPTIONS] [PATH]
 
 ## Options
 
-| Flag | Tipo | Default | Descripción |
+| Flag | Type | Default | Descripción |
 | ------ | ------ | --------- | ------------- |
 | `[PATH]` | TEXT | `.` | Project root directory to analyze. |
 | `--format` | TEXT | `text` | Output format: `text`, `json`, `sarif`. |

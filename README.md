@@ -4,6 +4,7 @@
 
 <!-- markdownlint-disable MD013 -->
 [![CI](https://github.com/MathiasPaulenko/behave-runner/actions/workflows/ci.yml/badge.svg)](https://github.com/MathiasPaulenko/behave-runner/actions/workflows/ci.yml)
+[![Coverage](https://codecov.io/gh/MathiasPaulenko/behave-runner/branch/main/graph/badge.svg)](https://codecov.io/gh/MathiasPaulenko/behave-runner)
 [![PyPI](https://img.shields.io/pypi/v/behave-runner)](https://pypi.org/project/behave-runner/)
 [![Python](https://img.shields.io/pypi/pyversions/behave-runner)](https://pypi.org/project/behave-runner/)
 [![Docs](https://img.shields.io/badge/docs-mkdocs-blue)](https://mathiaspaulenko.github.io/behave-runner/)
@@ -34,11 +35,16 @@ are not installed.
 - Optional parallel execution, sharding, retries and priority ordering.
 - Configuration profiles via `pyproject.toml` or `behave.ini`.
 - Watch mode that re-runs tests when files change.
-- Reports in console, HTML, Markdown, JSON, XLSX and PDF formats.
+- Reports in console, HTML, Markdown, JSON, sheets and file formats.
 - Trace viewer and web dashboard support.
 - Step library management and feature/step generation.
 - Impact analysis to detect scenarios affected by code changes.
 - Graceful degradation when optional extras are missing.
+
+## Requirements
+
+- Python 3.11 or higher
+- Behave ecosystem packages (installed automatically as optional extras)
 
 ## Installation
 
@@ -96,8 +102,8 @@ behave-runner run features/login.feature
 ### 4. Filter with `select`
 
 ```bash
-behave-runner select --tag @smoke
-behave-runner select --name "login"
+behave-runner select --tags @smoke
+behave-runner select --pattern "login"
 ```
 
 ### 5. Watch files
@@ -107,7 +113,7 @@ behave-runner watch
 ```
 
 Re-runs `behave-runner run` whenever a `.feature`, `.py` or config file
-changes. Press `q` to quit.
+changes. Press `Ctrl+C` to stop.
 
 ### 6. Lint and format
 
@@ -139,8 +145,8 @@ profiles.default.tags = ["~@wip"]
 profiles.smoke.tags = ["@smoke"]
 ```
 
-Or use a classic `behave.ini` file. Run `behave-runner config` to inspect and
-switch profiles.
+Or use a classic `behave.ini` file. Run `behave-runner config show` to inspect
+configuration.
 
 ## Commands
 
@@ -227,6 +233,14 @@ for guidelines.
 - **Issues**: <https://github.com/MathiasPaulenko/behave-runner/issues>
 - **Discussions**: <https://github.com/MathiasPaulenko/behave-runner/discussions>
 - **PyPI**: <https://pypi.org/project/behave-runner/>
+
+## Acknowledgements
+
+`behave-runner` is built on top of the
+[Behave](https://behave.readthedocs.io/) BDD framework and the
+[BehaveLib](https://github.com/MathiasPaulenko) ecosystem of plugins. It uses
+[Typer](https://typer.tiangolo.com/) for the CLI and
+[Rich](https://rich.readthedocs.io/) for terminal output.
 
 ## License
 

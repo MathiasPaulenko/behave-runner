@@ -2,6 +2,116 @@
 
 ## Unreleased
 
+## [1.1.0] - 2026-08-07
+
+### Fixed
+
+- Fixed `load_config` not falling back to `behave.ini` when `pyproject.toml`
+  exists but lacks `[tool.behave-runner]` section.
+- Fixed `_format_value` not escaping double quotes and backslashes in TOML
+  string values, which could produce invalid TOML.
+- Fixed `run.py` only loading 4 config values from profiles (format, output,
+  timeout, tags). Now loads all supported values: parallel, retries, dry_run,
+  stop_on_failure, scenario_timeout, priority_order, fail_fast, flaky_report,
+  max_failures.
+- Fixed `report.py` not supporting "file" format even though
+  `behave-modern-file-report` is listed as an optional extra.
+- Fixed `orchestrator.py` not passing environment variables (timeout,
+  max_failures, scenario_timeout) to subprocess fallback paths.
+- Fixed README CLI option names (`--tag` → `--tags`, `--name` → `--pattern`)
+  and watch command quit instructions.
+- Translated `mkdocs.yml` site description and `docs/index.md` to English.
+- Fixed `docs/index.md` incorrect examples and non-existent config keys.
+- Updated `pyproject.toml` development status from Alpha to Production/Stable.
+- Fixed `.pre-commit-config.yaml` mypy hook missing project dependencies.
+- Added `SECURITY.md`.
+- Improved `orchestrator.py` by reducing duplicated subprocess fallback code.
+- Improved `output.py` symlink safety in `clean_output_dir`.
+- Improved `watcher.py` error handling to log instead of silently suppressing.
+- Added `TypedDict` for scenario info in `features.py`.
+- Added regression tests for all bug fixes.
+- Fixed `config_cmd.py` exit code for missing pyproject.toml (1 → 2) to match
+  documented exit codes.
+- Fixed all Spanish text ("Tipo", "Descripción") in docs command reference.
+- Fixed `docs/cli.md` report format names (xlsx → sheets, pdf → file).
+- Fixed `docs/cli.md` --smoke flag incorrectly listed as requiring behave-priority.
+- Fixed `docs/commands/report.md` format names and added "file" to format list.
+- Fixed `docs/commands/run.md` --smoke dependency listing.
+- Fixed `docs/commands/init.md` positional arg example to use --name flag.
+- Fixed `docs/quickstart.md` init example to use --name flag.
+- Fixed `docs/index.md` init example and report format example.
+- Fixed `docs/configuration.md` fallback and merge scope descriptions.
+- Fixed `docs/installation.md` and `docs/ecosystem.md` priority extra description.
+- Added `sdist` build target to `pyproject.toml` to include tests and docs.
+- Refactored `orchestrator.py` to eliminate duplicated subprocess fallback code
+  via `_try_optional` and `_run_behave_subprocess` helpers.
+- Added Codecov badge to README.
+- Added Requirements and Acknowledgements sections to README.
+- Added Dependabot configuration for pip and GitHub Actions dependency updates.
+- Upgraded `codecov-action` to v5 in CI workflow.
+- Simplified CI pip caching to use `setup-python` built-in cache.
+- Added `SECURITY.md` to sdist include list.
+- Improved `docs/contributing.md` with detailed setup, workflow, code style,
+  pre-commit hooks, and issue reporting sections.
+- Synced `docs/changelog.md` with `CHANGELOG.md` Unreleased section.
+- Added `bandit` and `pip-audit` to dev dependencies for security scanning.
+- Added `Framework :: Pytest` classifier to `pyproject.toml`.
+- Added security job to CI workflow (bandit + pip-audit).
+- Added GitHub funding configuration file.
+- Added bandit configuration to `pyproject.toml`.
+- Fixed `config.py` `load_config` crashing with `AttributeError` if `[tool]`
+  is not a dictionary in `pyproject.toml`.
+- Fixed `config.py` `load_config` not catching `UnicodeDecodeError` from
+  `configparser` for non-decodable `behave.ini` files.
+- Fixed `output.py` `clean_output_dir` crashing on `OSError` from `iterdir()`.
+- Fixed `run.py` `flaky_report` check not accounting for profile-defined retries.
+- Fixed `run.py` profile `max_fail` key being silently ignored (only
+  `max_failures` was checked).
+- Fixed `run.py` profile `smoke` key being silently ignored.
+- Fixed `config_cmd.py` `_set_config_value` corrupting TOML when setting dotted
+  keys that conflict with existing subtables. Now validates the result is
+  parseable TOML before writing and checks all parent prefixes for conflicts.
+- Fixed `config_cmd.py` `config set` not catching `ConfigError` from
+  `_set_config_value`, causing an unhandled traceback.
+- Fixed `orchestrator.py` `RunConfig.parallel=0` being allowed but silently
+  falling back to sequential execution. Now requires `parallel >= 1`.
+- Fixed `features.py` `feature.name` being `None` crashing with
+  `AttributeError` on `.lower()` call.
+- Fixed `features.py` `scenario.name` being `None` crashing with `TypeError`
+  on `regex.search()` call.
+- Fixed `features.py` `ScenarioInfo` TypedDict contract being violated when
+  `feature.name` or `scenario.name` is `None`. Now coerces to empty strings.
+- Fixed `watch.py` negative `--debounce` causing the watcher to never trigger.
+  Now validates `debounce >= 0`.
+- Fixed `output.py` `ensure_output_dir` crashing with `FileExistsError` if the
+  path exists as a file. Now validates the path is not a file before `mkdir`.
+- Fixed `orchestrator.py` `_try_optional` not catching non-`ImportError`
+  exceptions from optional dependencies, causing unhandled tracebacks. Now
+  catches all exceptions and falls back gracefully.
+- Fixed `config.py` `_ini_flat_to_nested` silently overwriting leaf values
+  with dicts on key conflicts. Now raises `ConfigError` on conflicts.
+- Fixed `Makefile` `test` and `test-cov` targets not excluding e2e tests.
+- Fixed `.github/workflows/ci.yml` `bandit` and `pip-audit` used in CI but
+  not declared as `dev` dependencies in `pyproject.toml`.
+- Fixed `orchestrator.py` `run()` saving/restoring all environment variables
+  instead of only behave-specific ones.
+- Fixed `output.py` race condition in `find_latest_report` when calling
+  `stat()`.
+- Fixed `select.py` and `list_cmd.py` lacking validation for the `fmt`
+  argument.
+- Fixed `config_cmd.py` `_parse_value` not stripping whitespace from string
+  values.
+- Fixed `run.py` shard values from profiles not being type-validated, allowing
+  non-string values to cause runtime errors.
+
+### Added
+
+- `AGENTS.md` with project-specific conventions and verification steps.
+- `behave_runner/core/features.py` with `collect_scenarios` and `matches_tags`
+  utilities extracted from `select.py` and `list_cmd.py`.
+- Comprehensive regression test suite (`tests/unit/test_regression.py`) covering
+  all bug fixes.
+
 ## [1.0.1] - 2026-08-07
 
 - Updated README and package description to English.

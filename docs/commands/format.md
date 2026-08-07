@@ -16,7 +16,7 @@ behave-runner format [OPTIONS] [ARGS]...
 
 ## Options
 
-| Flag | Tipo | Default | Descripción |
+| Flag | Type | Default | Descripción |
 | ------ | ------ | --------- | ------------- |
 | `--check` | BOOLEAN | `False` | Check only, do not modify files. |
 | `--diff` | BOOLEAN | `False` | Show diff of changes. |

@@ -25,6 +25,7 @@ pre-commit install
 | `make test`         | Run the test suite.                          |
 | `make test-cov`     | Run tests with coverage (fail under 90%).    |
 | `make check`        | Full pre-commit check (lint + format + test).|
+| `make security`     | Run bandit + pip-audit security checks.      |
 | `make build`        | Build sdist + wheel into `dist/`.            |
 | `make docs-serve`   | Serve documentation locally.                 |
 | `make clean`        | Remove build artifacts and caches.           |

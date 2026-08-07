@@ -10,8 +10,8 @@ description: Configure behave-runner with pyproject.toml, behave.ini, profiles, 
 1. `pyproject.toml` under `[tool.behave-runner]`
 2. `behave.ini` under `[behave-runner]`
 
-If `pyproject.toml` exists, it is the only file loaded. `behave.ini` is used as
-a fallback when no `pyproject.toml` is present.
+If `pyproject.toml` exists but has no `[tool.behave-runner]` section,
+`behave.ini` is used as a fallback.
 
 ## pyproject.toml
 
@@ -102,9 +102,10 @@ behave-runner run --profile ci --format html features/
 ```
 
 !!! note "Current merge scope"
-    The `run` command merges the profile into `format`, `output`, `timeout`,
-    and `tags`. Other commands read the profile or base configuration in the
-    same way: CLI flags always win over profile values.
+    The `run` command merges all supported config values from the profile:
+    `format`, `output`, `timeout`, `tags`, `parallel`, `retries`, `dry_run`,
+    `stop_on_failure`, `scenario_timeout`, `priority_order`, `fail_fast`,
+    `flaky_report`, and `max_failures`. CLI flags always win over profile values.
 
 ## behave.ini
 
@@ -117,17 +118,13 @@ format = json
 output = reports/results.json
 ```
 
-Note that `behave.ini` is only loaded when `pyproject.toml` is not present.
-Profiles in `behave.ini` must be written as separate sections:
+Note that `behave.ini` is only loaded when `pyproject.toml` has no
+`[tool.behave-runner]` section.
 
-```ini
-[behave-runner]
-parallel = 2
-
-[behave-runner.profiles.ci]
-parallel = 8
-format = json
-```
+!!! warning "Profiles require pyproject.toml"
+    Configuration profiles are only supported in `pyproject.toml`. The
+    `behave.ini` format does not support nested tables, so profiles cannot
+    be defined there.
 
 ## Using the config command
 

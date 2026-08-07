@@ -1,7 +1,7 @@
 # Ecosystem
 
 `behave-runner` is the entry point for the BehaveLib ecosystem. The table
-below maps the 22 libraries to their purpose and the corresponding
+below maps the 21 libraries to their purpose and the corresponding
 optional extras.
 
 ## Library map
@@ -12,7 +12,7 @@ optional extras.
 | behave-kit | Core | Timeouts and config profiles. | core |
 | behave-model | Core | Feature and scenario parsing. | core |
 | behave-pool | Execution | Parallel and sharded runs. | parallel |
-| behave-priority | Execution | Priority ordering and smoke. | priority |
+| behave-priority | Execution | Priority ordering. | priority |
 | behave-retry | Execution | Retry and flaky reports. | retry |
 | behave-trace | Debug | Trace viewer and UI. | trace |
 | behave-doctor | Quality | Project health and impact. | doctor |

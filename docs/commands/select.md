@@ -16,7 +16,7 @@ behave-runner select [OPTIONS] [FEATURES]...
 
 ## Options
 
-| Flag | Tipo | Default | Description |
+| Flag | Type | Default | Description |
 | --- | --- | --- | --- |
 | `[FEATURES]...` | PATH | `features` | Paths to feature files or directories. |
 | `--pattern` | TEXT | None | Regex pattern to match scenario names. |

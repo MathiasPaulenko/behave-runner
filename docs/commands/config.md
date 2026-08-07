@@ -38,7 +38,7 @@ not exist.
 behave-runner config set KEY VALUE
 ```
 
-| Argument | Tipo | Default | Descripción |
+| Argument | Type | Default | Descripción |
 | --- | --- | --- | --- |
 | `KEY` | TEXT | required | Configuration key to set. |
 | `VALUE` | TEXT | required | Value to assign. |

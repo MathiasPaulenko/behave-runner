@@ -64,7 +64,7 @@ behave-runner run [OPTIONS] [FEATURES]...
 | `--retries` | | Number of retries for failed scenarios. Requires `behave-retry`. |
 | `--flaky-report` | | Generate a flakiness report. Requires `--retries`. |
 | `--priority-order` | | Run scenarios in priority order. Requires `behave-priority`. |
-| `--smoke` | | Run only `@smoke` scenarios. Requires `behave-priority`. |
+| `--smoke` | | Run only `@smoke` scenarios (adds `@smoke` tag filter). |
 | `--fail-fast` | | Stop at the first failure with priority logic. Requires `behave-priority`. |
 | `--profile` | | Load a configuration profile from `pyproject.toml`. |
 | `--scenario-timeout` | | Per-scenario timeout in seconds. Requires `behave-kit`. |
@@ -201,7 +201,7 @@ behave-runner report generate [OPTIONS] [FEATURES]...
 | Option | Description |
 | ------ | ----------- |
 | `[FEATURES]...` | Feature paths. Defaults to `features/`. |
-| `--format` | Report format: `console`, `html`, `md`, `json`, `xlsx`, `pdf`. Default: `console`. |
+| `--format` | Report format: `console`, `html`, `md`, `json`, `sheets`, `file`. Default: `console`. |
 | `--output` | Output directory for reports. |
 
 ### report show

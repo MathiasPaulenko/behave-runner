@@ -11,7 +11,7 @@ initialize a project, run a feature, list scenarios, and start the file watcher.
 Use the `init` command to scaffold a new Behave project:
 
 ```bash
-behave-runner init my-project
+behave-runner init --name my-project
 cd my-project
 ```
 

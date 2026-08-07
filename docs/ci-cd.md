@@ -47,6 +47,7 @@ jobs:
       - uses: codecov/codecov-action@v5
         with:
           files: ./coverage.xml
+          fail_ci_if_error: false
 ```
 
 ### Docs and release

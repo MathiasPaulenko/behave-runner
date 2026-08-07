@@ -22,10 +22,10 @@ behave-runner report [COMMAND] [ARGS]...
 behave-runner report generate [OPTIONS] [FEATURES]...
 ```
 
-| Flag | Tipo | Default | Description |
+| Flag | Type | Default | Description |
 | --- | --- | --- | --- |
 | `[FEATURES]...` | PATH | `features` | Paths to feature files or directories. |
-| `--format` | TEXT | `console` | Report format. |
+| `--format` | TEXT | `console` | Report format: `console`, `html`, `md`, `json`, `sheets`, `file`. |
 | `--output` | PATH | None | Output directory for reports. |
 
 ### report show
@@ -34,7 +34,7 @@ behave-runner report generate [OPTIONS] [FEATURES]...
 behave-runner report show [OPTIONS]
 ```
 
-| Flag | Tipo | Default | Description |
+| Flag | Type | Default | Description |
 | --- | --- | --- | --- |
 | `--output` | PATH | `reports` | Directory containing reports. |
 
@@ -62,5 +62,5 @@ behave-runner report show
 - `behave-runner[report-html]` for `html`
 - `behave-runner[report-md]` for `md`
 - `behave-runner[report-json]` for `json`
-- `behave-runner[report-sheets]` for `xlsx`
-- `behave-runner[report-file]` for `pdf`
+- `behave-runner[report-sheets]` for `sheets`
+- `behave-runner[report-file]` for `file`

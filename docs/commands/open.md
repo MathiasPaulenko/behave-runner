@@ -15,7 +15,7 @@ behave-runner open [OPTIONS] [TARGET]
 
 ## Options
 
-| Flag | Tipo | Default | Descripción |
+| Flag | Type | Default | Descripción |
 | --- | --- | --- | --- |
 | `[TARGET]` | TEXT | `report` | What to open: `report` or `trace`. |
 | `--output` | PATH | `reports` | Directory containing reports. |

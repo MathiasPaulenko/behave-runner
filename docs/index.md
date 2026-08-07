@@ -1,7 +1,7 @@
 # behave-runner
 
-CLI completa para Behave con subcomandos — punto de entrada unificado del
-ecosistema BehaveLib.
+A unified CLI entry point for the Behave BDD ecosystem with subcommands for
+running, listing, selecting, linting, formatting, watching, reporting and more.
 
 ## Features
 
@@ -14,7 +14,7 @@ ecosistema BehaveLib.
 - **doctor** — Diagnose project health
 - **impact** — Detect scenarios affected by code changes
 - **watch** — Re-run tests on file changes
-- **report** — Generate test reports (HTML, JSON, Markdown, XLSX, PDF)
+- **report** — Generate test reports (console, HTML, Markdown, JSON, sheets, file)
 - **trace** — Visual trace of test execution
 - **steps** — Manage step libraries
 - **generate** — Scaffold new projects
@@ -36,7 +36,7 @@ pip install -e ".[dev]"
 
 ```bash
 # Initialize a new behave project
-behave-runner init my-project
+behave-runner init --name my-project
 
 # Run all tests
 behave-runner run features/
@@ -47,8 +47,8 @@ behave-runner list features/
 # Run only smoke tests
 behave-runner run --tags @smoke features/
 
-# Generate JSON report
-behave-runner run --format json --output reports/results.json features/
+# Generate HTML report
+behave-runner report generate --format html features/
 ```
 
 ## Configuration
@@ -57,13 +57,14 @@ Configure `behave-runner` via `pyproject.toml`:
 
 ```toml
 [tool.behave-runner]
-default_parallel = 4
-output_dir = "reports"
-
-[tool.behave-runner.profiles.ci]
-parallel = 8
-format = "json"
+profiles.default.tags = ["~@wip"]
+profiles.smoke.tags = ["@smoke"]
+profiles.ci.parallel = 4
+profiles.ci.format = "json"
 ```
+
+Or use a classic `behave.ini` file. Run `behave-runner config show` to inspect
+configuration.
 
 ## License
 

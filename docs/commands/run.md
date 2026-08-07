@@ -17,7 +17,7 @@ behave-runner run [OPTIONS] [FEATURES]...
 
 ## Options
 
-| Flag | Tipo | Default | Description |
+| Flag | Type | Default | Description |
 | --- | --- | --- | --- |
 | `[FEATURES]...` | PATH | `features` | Feature paths. |
 | `--tags` `-t` | TEXT | None | Filter by tags. |
@@ -68,7 +68,7 @@ The base `run` command only requires `behave`.
 Optional flags need the corresponding extras:
 
 - `behave-runner[parallel]` for `--parallel` and `--shard`
-- `behave-runner[priority]` for `--priority-order`, `--smoke`, `--fail-fast`
+- `behave-runner[priority]` for `--priority-order` and `--fail-fast`
 - `behave-runner[retry]` for `--retries` and `--flaky-report`
 - `behave-runner[trace]` for `--ui`, `--debug`, `--trace`
 - `behave-runner[report-*]` for specific `--format` values

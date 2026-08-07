@@ -16,7 +16,7 @@ behave-runner list [OPTIONS] [FEATURES]...
 
 ## Options
 
-| Flag | Tipo | Default | Descripción |
+| Flag | Type | Default | Descripción |
 | ------ | ------ | --------- | ------------- |
 | `[FEATURES]...` | PATH | `features` | Paths to feature files or directories. |
 | `--tags` `-t` | TEXT | None | Filter scenarios by tags. |

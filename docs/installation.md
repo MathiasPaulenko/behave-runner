@@ -27,7 +27,7 @@ extras so you only install what you need.
 | Extra | Enables |
 | ----- | ------- |
 | `parallel` | Parallel execution via `behave-pool` |
-| `priority` | Priority ordering and smoke selection via `behave-priority` |
+| `priority` | Priority ordering via `behave-priority` |
 | `retry` | Retry failed scenarios via `behave-retry` |
 | `trace` | Trace viewer and UI mode via `behave-trace` |
 | `lint` | Feature file linting via `behave-lint` |

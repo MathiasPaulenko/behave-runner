@@ -16,7 +16,7 @@ behave-runner record [OPTIONS] [URL]
 
 ## Options
 
-| Flag | Tipo | Default | Description |
+| Flag | Type | Default | Description |
 | --- | --- | --- | --- |
 | `[URL]` | TEXT | `about:blank` | URL to record. |
 | `--output` | PATH | `recordings` | Output directory. |
