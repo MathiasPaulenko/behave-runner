@@ -31,6 +31,9 @@ Thumbs.db
 # Recorded sessions
 recordings/
 
+# Behave lint cache
+.behave-lint-cache/
+
 # IDE
 .idea/
 .vscode/

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "behave-runner"
-version = "1.0.1"
+version = "1.1.0"
 description = "A unified CLI entry point for the Behave BDD ecosystem, with subcommands for running, listing, selecting, linting, formatting, watching, reporting and more."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -13,7 +13,7 @@ license-files = ["LICENSE"]
 authors = [{ name = "Mathias Paulenko" }]
 keywords = ["behave", "bdd", "cli", "runner", "watch", "impact-analysis", "test-runner", "typer"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
@@ -23,6 +23,7 @@ classifiers = [
     "Programming Language :: Python :: 3.14",
     "Topic :: Software Development :: Testing",
     "Topic :: Software Development :: Testing :: BDD",
+    "Framework :: Pytest",
     "Typing :: Typed",
 ]
 dependencies = [
@@ -58,6 +59,8 @@ dev = [
     "mypy>=1.10",
     "build>=1.0",
     "pre-commit>=3.0",
+    "bandit>=1.7",
+    "pip-audit>=2.7",
 ]
 docs = [
     "mkdocs>=1.6",
@@ -99,6 +102,22 @@ packages = ["behave_runner"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "behave_runner/py.typed" = "behave_runner/py.typed"
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/behave_runner",
+    "/tests",
+    "/docs",
+    "/README.md",
+    "/CHANGELOG.md",
+    "/CONTRIBUTING.md",
+    "/CODE_OF_CONDUCT.md",
+    "/SUPPORT.md",
+    "/SECURITY.md",
+    "/LICENSE",
+    "/Makefile",
+    "/mkdocs.yml",
+]
 
 [tool.ruff]
 target-version = "py311"
@@ -143,3 +162,6 @@ omit = ["*/tests/*"]
 [tool.coverage.report]
 show_missing = true
 fail_under = 90
+
+[tool.bandit]
+exclude_dirs = ["tests", "tests/fixtures"]
