@@ -28,6 +28,7 @@ def test_open_with_report(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> No
     monkeypatch.chdir(tmp_path)
     result = runner.invoke(app, ["open"])
     assert result.exit_code == 0
+    assert "Opening" in result.stdout
 
 
 def test_open_report_alias(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

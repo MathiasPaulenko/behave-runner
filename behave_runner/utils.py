@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -17,7 +18,12 @@ def find_project_root(start: Path | None = None) -> Path:
 
 
 def open_in_browser(url: str) -> None:
-    """Open a URL in the default browser."""
+    """Open a URL in the default browser.
+
+    Set `BEHAVE_RUNNER_NO_BROWSER=1` to skip opening the browser.
+    """
+    if os.environ.get("BEHAVE_RUNNER_NO_BROWSER", "").lower() in ("1", "true", "yes"):
+        return
     if sys.platform == "win32":
         subprocess.run(["cmd", "/c", "start", url], check=False)  # noqa: S603, S607
     elif sys.platform == "darwin":
