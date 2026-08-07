@@ -1,34 +1,58 @@
 # behave-runner
 
-> CLI completa para Behave con subcomandos.
+> A unified CLI entry point for the Behave BDD ecosystem.
 
 <!-- markdownlint-disable MD013 -->
 [![CI](https://github.com/MathiasPaulenko/behave-runner/actions/workflows/ci.yml/badge.svg)](https://github.com/MathiasPaulenko/behave-runner/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/behave-runner)](https://pypi.org/project/behave-runner/)
 [![Python](https://img.shields.io/pypi/pyversions/behave-runner)](https://pypi.org/project/behave-runner/)
-[![Coverage](https://codecov.io/gh/MathiasPaulenko/behave-runner/branch/main/graph/badge.svg)](https://codecov.io/gh/MathiasPaulenko/behave-runner)
+[![Docs](https://img.shields.io/badge/docs-mkdocs-blue)](https://mathiaspaulenko.github.io/behave-runner/)
+[![License](https://img.shields.io/pypi/l/behave-runner)](https://github.com/MathiasPaulenko/behave-runner/blob/main/LICENSE)
 <!-- markdownlint-enable MD013 -->
+
+`behave-runner` is a single, extensible command-line interface for the
+[Behave](https://behave.readthedocs.io/) BDD ecosystem. It wraps common Behave
+workflows into focused subcommands and degrades gracefully when optional plugins
+are not installed.
+
+## Why behave-runner?
+
+- **One CLI for everything** — run, list, filter, lint, format, watch, report,
+  trace, generate and analyze scenarios from one tool.
+- **Plugin-friendly** — optional extras add parallel execution, retries,
+  priority ordering, trace viewers, report formatters, step libraries and more
+  without breaking core behavior.
+- **Fast feedback** — watch mode, impact analysis and rich terminal output keep
+  the test loop tight.
+- **Project scaffolding** — initialize a new Behave project, generate steps or
+  features, and validate project health with `doctor`.
 
 ## Features
 
-- CLI unificada para ejecutar, listar, filtrar y gestionar escenarios Behave.
-- Soporte de ejecución en paralelo, sharding, prioridad y reintentos.
-- Perfiles de configuración en `pyproject.toml` o `behave.ini`.
-- Modo *watch* para re-ejecutar tests automáticamente al cambiar archivos.
-- Reportes en consola, HTML, Markdown, JSON, XLSX y PDF.
-- Trace viewer y UI web para depuración.
-- Gestión de step libraries, generación de features y grabación de navegador.
-- Análisis de impacto para detectar escenarios afectados por cambios de código.
-- Degradación graceful: si falta una extra opcional, el comando sigue funcionando.
+- Run, list, select, lint, format, watch, report, trace, steps, impact,
+  generate, init, config, open and record commands.
+- Optional parallel execution, sharding, retries and priority ordering.
+- Configuration profiles via `pyproject.toml` or `behave.ini`.
+- Watch mode that re-runs tests when files change.
+- Reports in console, HTML, Markdown, JSON, XLSX and PDF formats.
+- Trace viewer and web dashboard support.
+- Step library management and feature/step generation.
+- Impact analysis to detect scenarios affected by code changes.
+- Graceful degradation when optional extras are missing.
 
 ## Installation
 
 ```bash
 pip install behave-runner
-pip install "behave-runner[all]"  # con todas las extras
 ```
 
-Para desarrollo:
+To install all optional extensions:
+
+```bash
+pip install "behave-runner[all]"
+```
+
+For development:
 
 ```bash
 pip install -e ".[dev]"
@@ -46,34 +70,40 @@ behave-runner watch
 
 ## Commands
 
-| Command | Description |
-| --- | --- |
-| `run` | Ejecutar tests de Behave. |
-| `watch` | Re-ejecutar tests al detectar cambios. |
-| `list` | Listar escenarios sin ejecutarlos. |
-| `select` | Filtrar escenarios por tags, regex o nombre. |
-| `lint` | Lint de archivos `.feature`. |
-| `format` | Formatear archivos `.feature`. |
-| `doctor` | Diagnóstico de salud del proyecto. |
-| `init` | Inicializar un proyecto Behave. |
-| `generate` | Generar steps o features. |
-| `record` | Grabar sesión de navegador y generar steps. |
-| `report` | Generar y abrir reportes. |
-| `trace` | Ver trace viewer o servir dashboard. |
-| `steps` | Gestionar step libraries. |
-| `impact` | Detectar escenarios afectados por cambios. |
-| `open` | Abrir el último reporte o trace en el navegador. |
-| `config` | Gestionar la configuración. |
+| Command     | Description                                              |
+| ----------- | -------------------------------------------------------- |
+| `run`       | Execute Behave tests.                                    |
+| `watch`     | Re-run tests when files change.                          |
+| `list`      | List scenarios without executing them.                   |
+| `select`    | Filter scenarios by tags, regex or name.                 |
+| `lint`      | Lint `.feature` files.                                   |
+| `format`    | Format `.feature` files.                                 |
+| `doctor`    | Check project health.                                    |
+| `init`      | Initialize a new Behave project.                         |
+| `generate`  | Generate steps or features.                              |
+| `record`    | Record a browser session and generate steps.             |
+| `report`    | Generate and open reports.                               |
+| `trace`     | View traces or serve a trace dashboard.                  |
+| `steps`     | Manage step libraries.                                   |
+| `impact`    | Detect scenarios affected by code changes.               |
+| `open`      | Open the latest report or trace in the default browser.  |
+| `config`    | Manage configuration profiles.                           |
 
 ## Documentation
 
-La documentación completa está en:
+Full documentation is available at:
 
 <https://mathiaspaulenko.github.io/behave-runner/>
 
+## Contributing
+
+Contributions are welcome. Please read
+[CONTRIBUTING.md](https://github.com/MathiasPaulenko/behave-runner/blob/main/CONTRIBUTING.md)
+for guidelines.
+
 ## Links
 
-- **Repositorio**: <https://github.com/MathiasPaulenko/behave-runner>
+- **Repository**: <https://github.com/MathiasPaulenko/behave-runner>
 - **Issues**: <https://github.com/MathiasPaulenko/behave-runner/issues>
 - **Discussions**: <https://github.com/MathiasPaulenko/behave-runner/discussions>
 - **PyPI**: <https://pypi.org/project/behave-runner/>
