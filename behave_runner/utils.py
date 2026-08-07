@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 import os
-import subprocess
-import sys
+import webbrowser
 from pathlib import Path
 
 
@@ -24,9 +23,4 @@ def open_in_browser(url: str) -> None:
     """
     if os.environ.get("BEHAVE_RUNNER_NO_BROWSER", "").lower() in ("1", "true", "yes"):
         return
-    if sys.platform == "win32":
-        subprocess.run(["cmd", "/c", "start", url], check=False)  # noqa: S603, S607
-    elif sys.platform == "darwin":
-        subprocess.run(["open", url], check=False)  # noqa: S603
-    else:
-        subprocess.run(["xdg-open", url], check=False)  # noqa: S603
+    webbrowser.open(url)

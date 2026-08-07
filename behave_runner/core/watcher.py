@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import logging
 import time
 from collections.abc import Callable
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 class FileWatcher:
@@ -27,20 +30,29 @@ class FileWatcher:
         """Scan all watched paths and return current mtimes."""
         result: dict[Path, float] = {}
         for path in self._paths:
-            if path.is_file():
-                result[path] = path.stat().st_mtime
-            elif path.is_dir():
-                for f in path.rglob("*"):
-                    if f.is_file():
-                        result[f] = f.stat().st_mtime
+            try:
+                if path.is_file():
+                    result[path] = path.stat().st_mtime
+                elif path.is_dir():
+                    for f in path.rglob("*"):
+                        try:
+                            if f.is_file():
+                                result[f] = f.stat().st_mtime
+                        except OSError:
+                            logger.debug("Could not stat %s during scan", f)
+            except OSError:
+                logger.debug("Could not scan %s", path)
         return result
 
     def _detect_changes(self) -> list[Path]:
-        """Detect changed files since last scan. Update internal state."""
+        """Detect changed, added, or deleted files since last scan. Update internal state."""
         current = self._scan()
         changed: list[Path] = []
         for path, mtime in current.items():
             if path not in self._mtimes or self._mtimes[path] != mtime:
+                changed.append(path)
+        for path in self._mtimes:
+            if path not in current:
                 changed.append(path)
         self._mtimes = current
         return changed
@@ -57,7 +69,10 @@ class FileWatcher:
             changed = self._detect_changes()
             if changed:
                 self._last_trigger = now
-                self._on_change(changed)
+                try:
+                    self._on_change(changed)
+                except Exception:
+                    logger.exception("Watcher callback failed for %s", changed)
 
     def stop(self) -> None:
         """Stop the watcher loop."""
