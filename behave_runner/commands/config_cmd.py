@@ -2,131 +2,128 @@
 
 from __future__ import annotations
 
+import re
 import tomllib
 from pathlib import Path
-from typing import Any
 
 import typer
 from rich.console import Console
 from rich.table import Table
 
 from behave_runner.core.config import load_config
+from behave_runner.exceptions import ConfigError
 
 console = Console()
 
-config_app = typer.Typer(
-    name="config",
-    help="Manage behave-runner configuration.",
-    no_args_is_help=True,
-)
+config_app = typer.Typer()
+
+_KEY_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 
 
-def _find_pyproject() -> Path:
-    """Find pyproject.toml in the current directory."""
+def _find_pyproject() -> Path | None:
+    """Find the pyproject.toml in the current working directory."""
     pyproject = Path.cwd() / "pyproject.toml"
-    if not pyproject.exists():
-        console.print("[red]Error: pyproject.toml not found in current directory.[/red]")
-        raise typer.Exit(1)
-    return pyproject
+    return pyproject if pyproject.exists() else None
 
 
-def _read_toml(path: Path) -> dict[str, Any]:
-    """Read a TOML file and return its contents."""
-    with path.open("rb") as f:
-        return tomllib.load(f)
-
-
-def _write_toml_section(path: Path, data: dict[str, Any]) -> None:
-    """Append or update [tool.behave-runner] section preserving the rest."""
-    content = path.read_text(encoding="utf-8")
-    section_header = "[tool.behave-runner]"
-
-    if section_header in content:
-        console.print("[yellow]Section [tool.behave-runner] already exists.[/yellow]")
+def _write_toml_section(path: Path, data: dict[str, object]) -> None:
+    """Write a [tool.behave-runner] section to pyproject.toml if missing."""
+    content = path.read_text()
+    if "[tool.behave-runner]" in content:
         return
-
-    lines = content.splitlines(keepends=True)
-    new_lines: list[str] = []
-    inserted = False
-
-    for line in lines:
-        new_lines.append(line)
-        if not inserted and line.strip().startswith("[tool."):
-            new_lines.append(f"\n{section_header}\n")
-            for key, value in data.items():
-                new_lines.append(f"{key} = {_format_value(value)}\n")
-            inserted = True
-
-    if not inserted:
-        if new_lines and not new_lines[-1].endswith("\n"):
-            new_lines[-1] += "\n"
-        new_lines.append(f"\n{section_header}\n")
+    with path.open("a") as f:
+        f.write("\n[tool.behave-runner]\n")
         for key, value in data.items():
-            new_lines.append(f"{key} = {_format_value(value)}\n")
-
-    path.write_text("".join(new_lines), encoding="utf-8")
+            f.write(f"{key} = {_format_value(value)}\n")
 
 
-def _set_config_value(path: Path, key: str, value: str) -> None:
-    """Set a key in the [tool.behave-runner] section."""
-    content = path.read_text(encoding="utf-8")
-    section_header = "[tool.behave-runner]"
+def _set_config_value(path: Path, key: str, value: object) -> None:
+    """Set or add a key in [tool.behave-runner].
 
-    if section_header not in content:
-        _write_toml_section(path, {key: _parse_value(value)})
-        return
-
+    This is a simple text-based edit. It handles the common case where the
+    section and key exist. More complex TOML is out of scope.
+    """
+    _write_toml_section(path, {})
+    content = path.read_text()
     lines = content.splitlines(keepends=True)
-    new_lines: list[str] = []
-    in_section = False
-    key_found = False
 
-    for line in lines:
+    # Find [tool.behave-runner] section
+    section_start = -1
+    for i, line in enumerate(lines):
+        if line.strip() == "[tool.behave-runner]":
+            section_start = i
+            break
+
+    if section_start == -1:
+        raise ConfigError("Could not find [tool.behave-runner] section.")
+
+    # Check for dotted keys that would conflict with existing subtables.
+    # Check every parent prefix, not just the immediate one.
+    if "." in key:
+        parts = key.split(".")
+        for depth in range(1, len(parts)):
+            prefix = ".".join(parts[:depth])
+            if f"[tool.behave-runner.{prefix}]" in content:
+                raise ConfigError(
+                    f"Cannot set dotted key '{key}' because "
+                    f"[tool.behave-runner.{prefix}] subtable already exists. "
+                    f"Edit the subtable directly instead."
+                )
+
+    # Try to replace an existing key within the section
+    key_start = -1
+    for i in range(section_start + 1, len(lines)):
+        line = lines[i]
         stripped = line.strip()
-
-        if stripped == section_header:
-            in_section = True
-            new_lines.append(line)
-            continue
-
-        if in_section and stripped.startswith("[") and stripped != section_header:
-            if not key_found:
-                new_lines.append(f"{key} = {_format_value(_parse_value(value))}\n")
-                key_found = True
-            in_section = False
-
+        if stripped.startswith("[") and stripped.endswith("]"):
+            break
         if (
-            in_section
-            and stripped.startswith(f"{key} ")
-            or (in_section and stripped.startswith(f"{key}="))
+            stripped
+            and not stripped.startswith("#")
+            and (stripped.startswith(f"{key} ") or stripped.startswith(f"{key}="))
         ):
-            new_lines.append(f"{key} = {_format_value(_parse_value(value))}\n")
-            key_found = True
-            continue
+            key_start = i
+            break
 
-        new_lines.append(line)
+    formatted = _format_value(value)
+    if key_start != -1:
+        # Preserve leading indentation and trailing comment if any
+        original = lines[key_start]
+        match = re.match(r"(\s*)" + re.escape(key) + r"\s*=\s*", original)
+        if match:
+            lines[key_start] = f"{match.group(1)}{key} = {formatted}\n"
+        else:
+            lines[key_start] = f"{key} = {formatted}\n"
+    else:
+        # Insert at end of section (or end of file if no section end)
+        insert_pos = len(lines)
+        for i in range(section_start + 1, len(lines)):
+            line = lines[i].strip()
+            if line.startswith("[") and line.endswith("]"):
+                insert_pos = i
+                break
+        lines.insert(insert_pos, f"{key} = {formatted}\n")
 
-    if in_section and not key_found:
-        new_lines.append(f"{key} = {_format_value(_parse_value(value))}\n")
+    new_content = "".join(lines)
 
-    path.write_text("".join(new_lines), encoding="utf-8")
+    # Validate the result is parseable TOML before writing
+    try:
+        tomllib.loads(new_content)
+    except tomllib.TOMLDecodeError as e:
+        raise ConfigError(
+            f"Setting '{key}' would produce invalid TOML: {e}. The file was not modified."
+        ) from e
 
-
-def _format_value(value: Any) -> str:
-    """Format a Python value as a TOML literal."""
-    if isinstance(value, bool):
-        return "true" if value else "false"
-    if isinstance(value, int):
-        return str(value)
-    if isinstance(value, float):
-        return str(value)
-    return f'"{value}"'
+    path.write_text(new_content)
 
 
-def _parse_value(value: str) -> Any:
-    """Parse a string value into a Python type for TOML."""
-    if value.lower() in ("true", "false"):
-        return value.lower() == "true"
+def _parse_value(value: str) -> object:
+    """Parse a config value from CLI into a Python object."""
+    lowered = value.lower().strip()
+    if lowered == "true":
+        return True
+    if lowered == "false":
+        return False
     try:
         return int(value)
     except ValueError:
@@ -135,39 +132,102 @@ def _parse_value(value: str) -> Any:
         return float(value)
     except ValueError:
         pass
-    return value.strip("\"'")
+    return value.strip().strip("\"'")
 
 
-@config_app.command(name="show")
+def _escape_toml_string(value: str) -> str:
+    """Escape a string for a TOML basic string."""
+    return (
+        value.replace("\\", "\\\\")
+        .replace('"', '\\"')
+        .replace("\n", "\\n")
+        .replace("\r", "\\r")
+        .replace("\t", "\\t")
+        .replace("\b", "\\b")
+        .replace("\f", "\\f")
+    )
+
+
+def _format_value(value: object) -> str:
+    """Format a value for writing to pyproject.toml."""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, int) and not isinstance(value, bool):
+        return str(value)
+    if isinstance(value, float):
+        return str(value)
+    if isinstance(value, list):
+        return "[" + ", ".join(_format_value(v) for v in value) + "]"
+    if isinstance(value, str):
+        return f'"{_escape_toml_string(value)}"'
+    return f'"{_escape_toml_string(str(value))}"'
+
+
+@config_app.callback(invoke_without_command=True)
+def default_callback() -> None:
+    """Default callback to make the config command a Typer app."""
+
+
+@config_app.command("show")
 def config_show() -> None:
-    """Show current behave-runner configuration."""
-    config = load_config()
+    """Show the current [tool.behave-runner] configuration."""
+    try:
+        config = load_config()
+    except ConfigError as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(2) from e
+
     if not config:
-        console.print("[yellow]No [tool.behave-runner] configuration found.[/yellow]")
+        console.print("[yellow]No configuration found.[/yellow]")
         return
 
     table = Table(title="behave-runner configuration")
-    table.add_column("Key", style="cyan")
-    table.add_column("Value", style="green")
-    for key, value in sorted(config.items()):
+    table.add_column("Key")
+    table.add_column("Value")
+    for key, value in config.items():
         table.add_row(key, str(value))
     console.print(table)
 
 
-@config_app.command(name="init")
+@config_app.command("init")
 def config_init() -> None:
-    """Create [tool.behave-runner] section in pyproject.toml."""
+    """Initialize a default [tool.behave-runner] section."""
     pyproject = _find_pyproject()
+    if pyproject is None:
+        console.print("[red]Error: no pyproject.toml found. Run this from a project root.[/red]")
+        raise typer.Exit(2)
+
+    content = pyproject.read_text()
+    if "[tool.behave-runner]" in content:
+        console.print("[yellow][tool.behave-runner] already exists.[/yellow]")
+        return
+
     _write_toml_section(pyproject, {})
-    console.print("[green]Created [tool.behave-runner] section in pyproject.toml[/green]")
+    console.print("[green]Created [tool.behave-runner] section.[/green]")
 
 
-@config_app.command(name="set")
+@config_app.command("set")
 def config_set(
     key: str = typer.Argument(..., help="Configuration key to set."),
-    value: str = typer.Argument(..., help="Value to assign."),
+    value: str = typer.Argument(..., help="Value to set."),
 ) -> None:
-    """Set a configuration value in [tool.behave-runner]."""
+    """Set a value in [tool.behave-runner]."""
+    if not _KEY_RE.match(key):
+        console.print(
+            "[red]Error: key must contain only letters, numbers, "
+            "underscores, dots, or hyphens.[/red]"
+        )
+        raise typer.Exit(2)
+
     pyproject = _find_pyproject()
-    _set_config_value(pyproject, key, value)
+    if pyproject is None:
+        console.print("[red]Error: no pyproject.toml found. Run this from a project root.[/red]")
+        raise typer.Exit(2)
+
+    parsed = _parse_value(value)
+    try:
+        _set_config_value(pyproject, key, parsed)
+    except ConfigError as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(2) from e
     console.print(f"[green]Set {key} = {value}[/green]")

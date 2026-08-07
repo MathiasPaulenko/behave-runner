@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import subprocess
+import subprocess  # nosec B404
 from pathlib import Path
 
 import typer
@@ -22,6 +22,8 @@ def record_command(
         Path("recordings"),
         "--output",
         help="Directory for recording output.",
+        file_okay=False,
+        dir_okay=True,
     ),
     name: str = typer.Option(
         "recorded_step",
@@ -30,13 +32,17 @@ def record_command(
     ),
 ) -> None:
     """Record a browser session with wavexis and generate behave steps."""
+    if not name.strip() or Path(name).name != name.strip():
+        console.print("[red]Error: --name must be a simple file name.[/red]")
+        raise typer.Exit(2)
+
     if not check_optional("record", "wavexis", "record"):
         raise typer.Exit(2)
 
     output.mkdir(parents=True, exist_ok=True)
     recording_path = output / f"{name}.yaml"
 
-    console.print(f"[cyan]Starting wavexis recording → {recording_path}[/cyan]")
+    console.print(f"[cyan]Starting wavexis recording -> {recording_path}[/cyan]")
     cmd = [
         "wavexis",
         "record",
@@ -46,11 +52,14 @@ def record_command(
         "--interactive",
     ]
     try:
-        result = subprocess.run(cmd, check=False)  # noqa: S603
+        result = subprocess.run(cmd, check=False)  # noqa: S603  # nosec B603
     except FileNotFoundError:
         console.print(
             "[red]Error: wavexis not found. Install with: pip install behave-runner[record][/red]"
         )
+        raise typer.Exit(2) from None
+    except OSError as e:
+        console.print(f"[red]Error running wavexis: {e}[/red]")
         raise typer.Exit(2) from None
 
     if result.returncode != 0:
@@ -73,11 +82,14 @@ def record_command(
         str(recording_path),
     ]
     try:
-        gen_result = subprocess.run(gen_cmd, check=False)  # noqa: S603
+        gen_result = subprocess.run(gen_cmd, check=False)  # noqa: S603  # nosec B603
     except FileNotFoundError:
         console.print(
             "[red]Error: behave-gen not found. Install with: pip install behave-gen[/red]"
         )
+        raise typer.Exit(2) from None
+    except OSError as e:
+        console.print(f"[red]Error running behave-gen: {e}[/red]")
         raise typer.Exit(2) from None
 
     raise typer.Exit(gen_result.returncode)

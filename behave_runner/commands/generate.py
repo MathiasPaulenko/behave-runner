@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import subprocess
+import subprocess  # nosec B404
 
 import typer
 from rich.console import Console
@@ -24,12 +24,15 @@ def _run_behave_gen(cmd: list[str]) -> None:
         raise typer.Exit(2)
 
     try:
-        result = subprocess.run(cmd, check=False)  # noqa: S603
+        result = subprocess.run(cmd, check=False)  # noqa: S603  # nosec B603
         raise typer.Exit(result.returncode)
     except FileNotFoundError:
         console.print(
             "[red]Error: behave-gen not found. Install with: pip install behave-gen[/red]"
         )
+        raise typer.Exit(2) from None
+    except OSError as e:
+        console.print(f"[red]Error running behave-gen: {e}[/red]")
         raise typer.Exit(2) from None
 
 

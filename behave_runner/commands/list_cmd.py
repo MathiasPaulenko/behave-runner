@@ -4,46 +4,14 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
 
 import typer
-from behave_model import load_feature
 from rich.console import Console
 from rich.table import Table
 
+from behave_runner.core.features import collect_scenarios
+
 console = Console()
-
-
-def _collect_scenarios(feature_paths: list[Path], tags: list[str]) -> list[dict[str, Any]]:
-    """Parse feature files and collect matching scenarios."""
-    scenarios: list[dict[str, Any]] = []
-    for fp in feature_paths:
-        if fp.is_dir():
-            feature_files = sorted(fp.rglob("*.feature"))
-        elif fp.is_file() and fp.suffix == ".feature":
-            feature_files = [fp]
-        else:
-            continue
-        for ff in feature_files:
-            feature = load_feature(str(ff))
-            for scenario in feature.scenarios:
-                if _matches_tags(scenario.tag_names, tags):
-                    scenarios.append(
-                        {
-                            "feature": feature.name,
-                            "scenario": scenario.name,
-                            "location": str(scenario.location),
-                            "tags": list(scenario.tag_names),
-                        }
-                    )
-    return scenarios
-
-
-def _matches_tags(scenario_tags: list[str], filter_tags: list[str]) -> bool:
-    """Check if scenario matches all filter tags."""
-    if not filter_tags:
-        return True
-    return all(tag in scenario_tags for tag in filter_tags)
 
 
 def list_command(
@@ -55,8 +23,15 @@ def list_command(
     fmt: str = typer.Option("text", "--format", help="Output format: text, json."),
 ) -> None:
     """List scenarios without executing them."""
+    valid_formats = {"text", "json"}
+    if fmt not in valid_formats:
+        console.print(
+            f"[red]Unknown format: '{fmt}'. Choose from: {', '.join(sorted(valid_formats))}[/red]"
+        )
+        raise typer.Exit(2)
+
     feature_paths = features if features else [Path("features")]
-    scenarios = _collect_scenarios(feature_paths, tags)
+    scenarios = collect_scenarios(feature_paths, tags=tags)
 
     if fmt == "json":
         print(json.dumps(scenarios, indent=2))

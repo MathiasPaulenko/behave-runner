@@ -5,68 +5,14 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
-from typing import Any
 
 import typer
-from behave_model import load_feature
 from rich.console import Console
 from rich.table import Table
 
+from behave_runner.core.features import collect_scenarios
+
 console = Console()
-
-
-def _collect_scenarios(
-    feature_paths: list[Path],
-    pattern: str | None,
-    tags: list[str],
-    feature_name: str | None,
-) -> list[dict[str, Any]]:
-    """Parse feature files and collect scenarios matching all filters."""
-    include_tags = [t for t in tags if not t.startswith("~")]
-    exclude_tags = [t[1:] for t in tags if t.startswith("~")]
-
-    regex = re.compile(pattern) if pattern else None
-
-    scenarios: list[dict[str, Any]] = []
-    for fp in feature_paths:
-        if fp.is_dir():
-            feature_files = sorted(fp.rglob("*.feature"))
-        elif fp.is_file() and fp.suffix == ".feature":
-            feature_files = [fp]
-        else:
-            continue
-        for ff in feature_files:
-            feature = load_feature(str(ff))
-            if feature_name and feature_name.lower() not in feature.name.lower():
-                continue
-            for scenario in feature.scenarios:
-                scenario_tags = list(scenario.tag_names)
-                if not _matches_tags(scenario_tags, include_tags, exclude_tags):
-                    continue
-                if regex and not regex.search(scenario.name):
-                    continue
-                scenarios.append(
-                    {
-                        "feature": feature.name,
-                        "scenario": scenario.name,
-                        "location": str(scenario.location),
-                        "tags": scenario_tags,
-                    }
-                )
-    return scenarios
-
-
-def _matches_tags(
-    scenario_tags: list[str],
-    include_tags: list[str],
-    exclude_tags: list[str],
-) -> bool:
-    """Check if scenario matches include tags (AND) and excludes none."""
-    if include_tags and not all(t in scenario_tags for t in include_tags):
-        return False
-    if exclude_tags:
-        return not any(t in scenario_tags for t in exclude_tags)
-    return True
 
 
 def select_command(
@@ -86,8 +32,25 @@ def select_command(
     fmt: str = typer.Option("text", "--format", help="Output format: text, names, json."),
 ) -> None:
     """Select scenarios with advanced filtering."""
+    valid_formats = {"text", "names", "json"}
+    if fmt not in valid_formats:
+        console.print(
+            f"[red]Unknown format: '{fmt}'. Choose from: {', '.join(sorted(valid_formats))}[/red]"
+        )
+        raise typer.Exit(2)
+
     feature_paths = features if features else [Path("features")]
-    scenarios = _collect_scenarios(feature_paths, pattern, tags, feature_name)
+
+    if pattern is not None:
+        try:
+            re.compile(pattern)
+        except re.error as e:
+            console.print(f"[red]Invalid regex pattern: {e}[/red]")
+            raise typer.Exit(2) from e
+
+    scenarios = collect_scenarios(
+        feature_paths, tags=tags, pattern=pattern, feature_name=feature_name
+    )
 
     if fmt == "json":
         print(json.dumps(scenarios, indent=2))

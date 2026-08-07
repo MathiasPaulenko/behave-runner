@@ -24,7 +24,7 @@ from behave_runner.commands.watch import watch_command
 
 app = typer.Typer(
     name="behave-runner",
-    help="CLI completa para Behave con subcomandos.",
+    help="A unified CLI for the Behave BDD ecosystem.",
     no_args_is_help=True,
     rich_markup_mode="rich",
 )
@@ -46,7 +46,7 @@ def main(
         help="Show version and exit.",
     ),
 ) -> None:
-    """behave-runner — CLI completa para Behave con subcomandos."""
+    """behave-runner — A unified CLI for the Behave BDD ecosystem."""
     pass
 
 
@@ -63,7 +63,6 @@ app.add_typer(trace_app, name="trace")
 app.command(name="watch")(watch_command)
 app.command(name="impact")(impact_command)
 app.add_typer(steps_app, name="steps")
-app.command(name="impact")(impact_command)
 app.command(name="record")(record_command)
 app.command(name="open")(open_command)
 app.add_typer(config_app, name="config")

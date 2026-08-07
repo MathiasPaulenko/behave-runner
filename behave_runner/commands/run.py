@@ -9,7 +9,7 @@ from typing import Any
 import typer
 from rich.console import Console
 
-from behave_runner.core.config import load_config, load_profile
+from behave_runner.core.config import load_profile
 from behave_runner.core.orchestrator import RunConfig, run
 from behave_runner.exceptions import ConfigError
 
@@ -46,7 +46,7 @@ def run_command(
         False, "--priority-order", help="Run scenarios in priority order (uses behave-priority)."
     ),
     smoke: bool = typer.Option(
-        False, "--smoke", help="Run only @smoke scenarios (uses behave-priority)."
+        False, "--smoke", help="Run only @smoke scenarios (adds @smoke tag filter)."
     ),
     fail_fast: bool = typer.Option(
         False, "--fail-fast", help="Stop on first failure with priority (uses behave-priority)."
@@ -74,23 +74,6 @@ def run_command(
         console_err.print("[yellow]--flaky-report requires --retries > 0. Ignoring.[/yellow]")
         flaky_report = False
 
-    if shard is not None:
-        match = _SHARD_RE.match(shard)
-        if not match:
-            console_err = Console()
-            console_err.print(
-                f"[red]Invalid shard format: '{shard}'. Expected i/n (e.g. 1/3).[/red]"
-            )
-            raise typer.Exit(2)
-        i, n = int(match.group(1)), int(match.group(2))
-        if i < 1 or n < 1 or i > n:
-            console_err = Console()
-            console_err.print(f"[red]Invalid shard: {shard}. i must be 1..n.[/red]")
-            raise typer.Exit(2)
-
-    feature_paths = [str(f) for f in features] if features else ["features"]
-    load_config()
-
     profile_config: dict[str, Any] = {}
     if profile is not None:
         try:
@@ -100,32 +83,105 @@ def run_command(
             console_err.print(f"[red]Error: {e}[/red]")
             raise typer.Exit(2) from e
 
+    # Merge shard from profile, validate it
+    p_shard = shard if shard is not None else profile_config.get("shard")
+    if p_shard is not None:
+        if not isinstance(p_shard, str):
+            console_err = Console()
+            console_err.print(
+                f"[red]Invalid shard: must be a string like '1/3', got {p_shard!r}[/red]"
+            )
+            raise typer.Exit(2)
+        match = _SHARD_RE.match(p_shard)
+        if not match:
+            console_err = Console()
+            console_err.print(
+                f"[red]Invalid shard format: '{p_shard}'. Expected i/n (e.g. 1/3).[/red]"
+            )
+            raise typer.Exit(2)
+        i, n = int(match.group(1)), int(match.group(2))
+        if i < 1 or n < 1 or i > n:
+            console_err = Console()
+            console_err.print(f"[red]Invalid shard: {p_shard}. i must be 1..n.[/red]")
+            raise typer.Exit(2)
+
+    # Features: CLI takes priority, then profile, then default
+    if features:
+        feature_paths = [str(f) for f in features]
+    else:
+        profile_features = profile_config.get("features", [])
+        feature_paths = profile_features if profile_features else ["features"]
+
+    # Smoke from profile adds @smoke tag (same as CLI --smoke)
+    profile_smoke = profile_config.get("smoke", False)
+    if profile_smoke:
+        tags = [*tags, "@smoke"]
+
+    # Tags: merge CLI tags (including --smoke) with profile tags
+    profile_tags = profile_config.get("tags", [])
+    p_tags = [*tags, *profile_tags] if (tags or profile_tags) else []
+
+    # Name: only from profile (no CLI --name option on run command)
+    p_name = profile_config.get("name", [])
+
     p_fmt = fmt if fmt is not None else profile_config.get("format")
     p_output = output if output is not None else profile_config.get("output")
     p_timeout = timeout if timeout is not None else profile_config.get("timeout")
-    p_tags = tags if tags else profile_config.get("tags", [])
-
-    run_config = RunConfig(
-        features=feature_paths,
-        tags=p_tags,
-        dry_run=dry_run,
-        stop_on_failure=stop_on_failure,
-        max_failures=max_fail,
-        timeout=p_timeout,
-        fmt=p_fmt,
-        outfile=p_output,
-        parallel=parallel,
-        shard=shard,
-        retries=retries,
-        flaky_report=flaky_report,
-        priority_order=priority_order,
-        smoke=smoke,
-        fail_fast=fail_fast,
-        profile=profile,
-        scenario_timeout=scenario_timeout,
-        ui=ui,
-        debug=debug,
-        trace=trace,
+    p_parallel = parallel if parallel is not None else profile_config.get("parallel")
+    p_retries = retries if retries is not None else profile_config.get("retries")
+    p_dry_run = dry_run or profile_config.get("dry_run", False)
+    p_stop = stop_on_failure or profile_config.get("stop_on_failure", False)
+    p_scenario_timeout = (
+        scenario_timeout if scenario_timeout is not None else profile_config.get("scenario_timeout")
     )
+    p_priority = priority_order or profile_config.get("priority_order", False)
+    p_fail_fast = fail_fast or profile_config.get("fail_fast", False)
+    p_flaky = flaky_report or profile_config.get("flaky_report", False)
+    p_max_fail = (
+        max_fail
+        if max_fail is not None
+        else profile_config.get("max_failures", profile_config.get("max_fail"))
+    )
+
+    # Re-check flaky_report after profile merge: profile may set retries=0
+    if p_flaky and (p_retries is None or p_retries == 0):
+        console_err = Console()
+        console_err.print("[yellow]--flaky-report requires --retries > 0. Ignoring.[/yellow]")
+        p_flaky = False
+    p_no_color = profile_config.get("no_color", False)
+    p_verbose = profile_config.get("verbose", False)
+    p_ui = ui or profile_config.get("ui", False)
+    p_debug = debug or profile_config.get("debug", False)
+    p_trace = trace or profile_config.get("trace", False)
+
+    try:
+        run_config = RunConfig(
+            features=feature_paths,
+            tags=p_tags,
+            dry_run=p_dry_run,
+            stop_on_failure=p_stop,
+            max_failures=p_max_fail,
+            timeout=p_timeout,
+            fmt=p_fmt,
+            outfile=p_output,
+            name=p_name,
+            no_color=p_no_color,
+            verbose=p_verbose,
+            parallel=p_parallel,
+            shard=p_shard,
+            retries=p_retries,
+            flaky_report=p_flaky,
+            priority_order=p_priority,
+            fail_fast=p_fail_fast,
+            scenario_timeout=p_scenario_timeout,
+            ui=p_ui,
+            debug=p_debug,
+            trace=p_trace,
+        )
+    except (ValueError, TypeError) as e:
+        console_err = Console()
+        console_err.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(2) from e
+
     exit_code = run(run_config)
     raise typer.Exit(exit_code)

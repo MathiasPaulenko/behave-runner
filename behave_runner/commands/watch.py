@@ -16,7 +16,7 @@ console = Console()
 
 _DEFAULT_PATHS = [
     Path("features"),
-    Path("steps"),
+    Path("features/steps"),
     Path("environment.py"),
     Path("behave.ini"),
     Path("pyproject.toml"),
@@ -65,6 +65,10 @@ def watch_command(
     ui: bool = typer.Option(False, "--ui", help="Use behave-trace UI mode if available."),
 ) -> None:
     """Watch for file changes and re-run tests automatically."""
+    if debounce < 0:
+        console.print("[red]Error: --debounce must be a non-negative integer.[/red]")
+        raise typer.Exit(2)
+
     feature_paths = features if features else ["features"]
     watch_paths = [Path(p) for p in feature_paths]
     watch_paths.extend(p for p in _DEFAULT_PATHS if p not in watch_paths)

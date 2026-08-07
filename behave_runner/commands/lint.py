@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import subprocess
+import subprocess  # nosec B404
 
 import typer
 from rich.console import Console
@@ -21,10 +21,13 @@ def lint_command(
 
     cmd = [*args] if args else []
     try:
-        result = subprocess.run(["behave-lint", *cmd], check=False)  # noqa: S603
+        result = subprocess.run(["behave-lint", *cmd], check=False)  # noqa: S603  # nosec
         raise typer.Exit(result.returncode)
     except FileNotFoundError:
         console.print(
             "[red]Error: behave-lint not found. Install with: pip install behave-lint[/red]"
         )
+        raise typer.Exit(2) from None
+    except OSError as e:
+        console.print(f"[red]Error running behave-lint: {e}[/red]")
         raise typer.Exit(2) from None

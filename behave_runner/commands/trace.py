@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import subprocess
+import subprocess  # nosec B404
 
 import typer
 from rich.console import Console
@@ -25,12 +25,15 @@ def _run_behave_trace(subcommand: str, args: list[str]) -> None:
 
     cmd = ["behave-trace", subcommand, *args]
     try:
-        result = subprocess.run(cmd, check=False)  # noqa: S603
+        result = subprocess.run(cmd, check=False)  # noqa: S603  # nosec B603
         raise typer.Exit(result.returncode)
     except FileNotFoundError:
         console.print(
             "[red]Error: behave-trace not found. Install with: pip install behave-trace[/red]"
         )
+        raise typer.Exit(2) from None
+    except OSError as e:
+        console.print(f"[red]Error running behave-trace: {e}[/red]")
         raise typer.Exit(2) from None
 
 
