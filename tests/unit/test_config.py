@@ -55,3 +55,63 @@ def test_behave_ini_fallback(tmp_path: Path) -> None:
     )
     config = load_config(tmp_path)
     assert config["default_parallel"] == "2"
+
+
+def test_behave_ini_nested_profile(tmp_path: Path) -> None:
+    (tmp_path / "behave.ini").write_text(
+        textwrap.dedent("""
+        [behave-runner]
+        profiles.default.parallel = 4
+        profiles.default.dry_run = false
+        profiles.default.tags = @smoke, @fast
+    """)
+    )
+    profile = load_profile("default", tmp_path)
+    assert profile["parallel"] == 4
+    assert profile["dry_run"] is False
+    assert profile["tags"] == ["@smoke", "@fast"]
+
+
+def test_malformed_pyproject_raises_config_error(tmp_path: Path) -> None:
+    (tmp_path / "pyproject.toml").write_text("[tool.behave-runner\nparallel = 4")
+    with pytest.raises(ConfigError, match="Failed to parse"):
+        load_config(tmp_path)
+
+
+def test_profile_string_values_are_normalized(tmp_path: Path) -> None:
+    (tmp_path / "pyproject.toml").write_text(
+        textwrap.dedent("""
+        [tool.behave-runner.profiles.ci]
+        parallel = "4"
+        dry_run = "true"
+        retries = "2"
+        tags = "@smoke, @fast"
+    """)
+    )
+    profile = load_profile("ci", tmp_path)
+    assert profile["parallel"] == 4
+    assert profile["dry_run"] is True
+    assert profile["retries"] == 2
+    assert profile["tags"] == ["@smoke", "@fast"]
+
+
+def test_profile_invalid_integer_raises(tmp_path: Path) -> None:
+    (tmp_path / "pyproject.toml").write_text(
+        textwrap.dedent("""
+        [tool.behave-runner.profiles.ci]
+        parallel = "not-a-number"
+    """)
+    )
+    with pytest.raises(ConfigError, match="parallel"):
+        load_profile("ci", tmp_path)
+
+
+def test_profile_invalid_boolean_raises(tmp_path: Path) -> None:
+    (tmp_path / "pyproject.toml").write_text(
+        textwrap.dedent("""
+        [tool.behave-runner.profiles.ci]
+        dry_run = "maybe"
+    """)
+    )
+    with pytest.raises(ConfigError, match="dry_run"):
+        load_profile("ci", tmp_path)

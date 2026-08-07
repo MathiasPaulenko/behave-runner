@@ -66,3 +66,11 @@ def test_single_file_watch(tmp_path: Path) -> None:
     f.write_text("Feature: Changed")
     changed = watcher._detect_changes()
     assert f in changed
+
+
+def test_scan_skips_missing_paths(tmp_path: Path) -> None:
+    """Scan should not crash when a watched path is removed."""
+    missing = tmp_path / "missing"
+    watcher = FileWatcher([missing], lambda c: None, debounce_ms=0)
+    result = watcher._scan()
+    assert result == {}
