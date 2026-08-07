@@ -57,10 +57,15 @@ Configure `behave-runner` via `pyproject.toml`:
 
 ```toml
 [tool.behave-runner]
-profiles.default.tags = ["~@wip"]
-profiles.smoke.tags = ["@smoke"]
-profiles.ci.parallel = 4
-profiles.ci.format = "json"
+parallel = 4
+
+[tool.behave-runner.profiles.smoke]
+tags = ["@smoke"]
+
+[tool.behave-runner.profiles.ci]
+parallel = 8
+format = "json"
+output = "reports/ci.json"
 ```
 
 Or use a classic `behave.ini` file. Run `behave-runner config show` to inspect

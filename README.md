@@ -141,8 +141,14 @@ You can store profiles in `pyproject.toml`:
 
 ```toml
 [tool.behave-runner]
-profiles.default.tags = ["~@wip"]
-profiles.smoke.tags = ["@smoke"]
+parallel = 4
+
+[tool.behave-runner.profiles.smoke]
+tags = ["@smoke"]
+
+[tool.behave-runner.profiles.ci]
+parallel = 8
+format = "json"
 ```
 
 Or use a classic `behave.ini` file. Run `behave-runner config show` to inspect

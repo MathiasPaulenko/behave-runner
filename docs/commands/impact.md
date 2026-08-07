@@ -16,7 +16,7 @@ behave-runner impact [OPTIONS] [PATH]
 
 ## Options
 
-| Flag | Type | Default | Descripción |
+| Flag | Type | Default | Description |
 | ------ | ------ | --------- | ------------- |
 | `[PATH]` | TEXT | `.` | Project root directory to analyze. |
 | `--format` | TEXT | `text` | Output format: `text`, `json`, `sarif`. |
@@ -25,14 +25,14 @@ behave-runner impact [OPTIONS] [PATH]
 ## Examples
 
 ```bash
-# Detect affected scenarios from the last commit
-behave-runner impact $(git diff --name-only HEAD~1)
+# Detect affected scenarios from the current directory
+behave-runner impact
 
-# Analyze specific files
-behave-runner impact src/auth.py src/models/user.py
+# Analyze a specific directory
+behave-runner impact src/
 
 # Detect and run affected scenarios
-behave-runner impact $(git diff --name-only HEAD~1) --run
+behave-runner impact --run
 
 # Export results as JSON
 behave-runner impact --format json

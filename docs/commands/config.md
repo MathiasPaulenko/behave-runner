@@ -38,10 +38,10 @@ not exist.
 behave-runner config set KEY VALUE
 ```
 
-| Argument | Type | Default | Descripción |
+| Argument | Type | Default | Description |
 | --- | --- | --- | --- |
-| `KEY` | TEXT | required | Configuration key to set. |
-| `VALUE` | TEXT | required | Value to assign. |
+| `KEY` | TEXT | required | Configuration key to set. Supports dotted notation (e.g. `profiles.ci.parallel`). |
+| `VALUE` | TEXT | required | Value to assign. Parsed as integer, boolean, or string. |
 
 ## Examples
 
@@ -55,6 +55,10 @@ behave-runner config init
 # Set a value
 behave-runner config set parallel 4
 behave-runner config set format json
+behave-runner config set tags "[@smoke, @fast]"
+
+# Set a profile value using dotted notation
+behave-runner config set profiles.ci.parallel 8
 ```
 
 ## Dependencies

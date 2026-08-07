@@ -327,7 +327,9 @@ Create the `[tool.behave-runner]` section in `pyproject.toml`.
 behave-runner config set KEY VALUE
 ```
 
-Set a configuration value in `[tool.behave-runner]`.
+Set a configuration value in `[tool.behave-runner]`. Supports dotted notation
+for nested keys (e.g. `profiles.ci.parallel`). Values are parsed as integer,
+boolean, or string.
 
 ## open
 

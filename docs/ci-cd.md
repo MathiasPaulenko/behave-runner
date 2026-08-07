@@ -6,8 +6,8 @@ provides templates for GitLab CI and Jenkins.
 
 ## GitHub Actions
 
-The `.github/workflows/ci.yml` workflow runs lint, type checks, and tests
-across a matrix of Python versions and operating systems.
+The `.github/workflows/ci.yml` workflow runs lint, type checks, security
+scanning, and tests across a matrix of Python versions and operating systems.
 
 ```yaml
 name: CI
@@ -25,11 +25,24 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: "3.12"
+          cache: pip
       - run: pip install -e ".[dev]"
       - run: ruff check .
       - run: ruff format --check .
       - run: mypy --strict behave_runner
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e ".[dev]"
+      - run: bandit -r behave_runner -c pyproject.toml
+      - run: pip-audit --strict --desc
 
   test:
     runs-on: ${{ matrix.os }}
@@ -42,8 +55,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+          cache: pip
       - run: pip install -e ".[dev]"
-      - run: pytest --cov=behave_runner --cov-report=xml
+      - run: pytest --cov=behave_runner --cov-report=xml -m "not e2e_web and not e2e_api"
       - uses: codecov/codecov-action@v5
         with:
           files: ./coverage.xml

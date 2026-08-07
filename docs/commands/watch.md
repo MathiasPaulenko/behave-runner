@@ -16,11 +16,11 @@ behave-runner watch [OPTIONS] [FEATURES]...
 
 ## Options
 
-| Flag | Type | Default | Descripción |
+| Flag | Type | Default | Description |
 | ------ | ------ | --------- | ------------- |
 | `[FEATURES]...` | PATH | `features` | Feature paths to watch and run. |
 | `--tags` `-t` | TEXT | None | Filter by tags. |
-| `--debounce` | INTEGER | `500` | Debounce time in milliseconds. |
+| `--debounce` | INTEGER | `500` | Debounce time in milliseconds. Must be >= 0. |
 | `--pattern` | TEXT | None | Glob pattern to filter watched files. |
 | `--ui` | BOOLEAN | `False` | Use `behave-trace` UI mode when available. |
 

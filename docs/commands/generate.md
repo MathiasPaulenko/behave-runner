@@ -22,7 +22,7 @@ behave-runner generate [COMMAND] [ARGS]...
 behave-runner generate step --lib <library>
 ```
 
-| Flag | Type | Default | Descripción |
+| Flag | Type | Default | Description |
 | --- | --- | --- | --- |
 | `--lib` | TEXT | required | Step library name (e.g. `http`, `auth`). |
 
@@ -32,7 +32,7 @@ behave-runner generate step --lib <library>
 behave-runner generate feature [OPTIONS] NAME
 ```
 
-| Flag | Type | Default | Descripción |
+| Flag | Type | Default | Description |
 | --- | --- | --- | --- |
 | `NAME` | TEXT | required | Feature name without the `.feature` extension. |
 | `--tags` | TEXT | None | Comma or space separated tags. |

@@ -71,4 +71,7 @@ Optional flags need the corresponding extras:
 - `behave-runner[priority]` for `--priority-order` and `--fail-fast`
 - `behave-runner[retry]` for `--retries` and `--flaky-report`
 - `behave-runner[trace]` for `--ui`, `--debug`, `--trace`
-- `behave-runner[report-*]` for specific `--format` values
+
+The `--format` and `--output` flags are passed directly to `behave` and do
+not require any extra dependencies. Use the `report generate` command for
+advanced report formats (HTML, Markdown, JSON, sheets, file).

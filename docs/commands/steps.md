@@ -29,7 +29,7 @@ List available step libraries.
 behave-runner steps install NAME [ARGS]...
 ```
 
-| Argument | Type | Default | Descripción |
+| Argument | Type | Default | Description |
 | --- | --- | --- | --- |
 | `NAME` | TEXT | required | Step library name to install. |
 | `[ARGS]...` | TEXT | None | Additional arguments. |
@@ -40,7 +40,7 @@ behave-runner steps install NAME [ARGS]...
 behave-runner steps search QUERY [ARGS]...
 ```
 
-| Argument | Type | Default | Descripción |
+| Argument | Type | Default | Description |
 | --- | --- | --- | --- |
 | `QUERY` | TEXT | required | Search query. |
 | `[ARGS]...` | TEXT | None | Additional arguments. |

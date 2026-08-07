@@ -30,10 +30,27 @@ timeout = 300
 | Key | Type | Description |
 | --- | ---- | ----------- |
 | `parallel` | integer | Default number of parallel workers. |
+| `retries` | integer | Number of retries for failed scenarios. |
 | `format` | string | Default output format. |
 | `output` | string | Default output file path. |
 | `timeout` | integer | Global timeout in seconds. |
+| `scenario_timeout` | integer | Per-scenario timeout in seconds. |
 | `tags` | list of strings | Default scenario tags. |
+| `features` | list of strings | Default feature paths. |
+| `name` | list of strings | Scenario name filters. |
+| `dry_run` | boolean | Parse scenarios without executing steps. |
+| `stop_on_failure` | boolean | Stop at the first failing scenario. |
+| `max_failures` | integer | Maximum failures before stopping. |
+| `flaky_report` | boolean | Generate a flakiness report. |
+| `priority_order` | boolean | Run scenarios in priority order. |
+| `fail_fast` | boolean | Stop at first failure with priority logic. |
+| `smoke` | boolean | Run only `@smoke` scenarios. |
+| `shard` | string | CI shard in `i/n` form. |
+| `no_color` | boolean | Disable colored output. |
+| `verbose` | boolean | Enable verbose output. |
+| `ui` | boolean | Launch the trace web dashboard. |
+| `debug` | boolean | Enable interactive debugging. |
+| `trace` | boolean | Enable trace viewer after the run. |
 | `profiles` | table | Named configuration profiles. |
 
 !!! note "List syntax"
@@ -103,9 +120,13 @@ behave-runner run --profile ci --format html features/
 
 !!! note "Current merge scope"
     The `run` command merges all supported config values from the profile:
-    `format`, `output`, `timeout`, `tags`, `parallel`, `retries`, `dry_run`,
-    `stop_on_failure`, `scenario_timeout`, `priority_order`, `fail_fast`,
-    `flaky_report`, and `max_failures`. CLI flags always win over profile values.
+    `features`, `tags`, `name`, `format`, `output`, `timeout`, `parallel`,
+    `retries`, `dry_run`, `stop_on_failure`, `scenario_timeout`,
+    `priority_order`, `fail_fast`, `flaky_report`, `max_failures` (or
+    `max_fail`), `smoke`, `shard`, `no_color`, `verbose`, `ui`, `debug`,
+    and `trace`. CLI flags always win over profile values. Boolean flags
+    (`dry_run`, `stop_on_failure`, etc.) are OR-merged: if either the CLI
+    flag or the profile sets `true`, the result is `true`.
 
 ## behave.ini
 
@@ -121,10 +142,19 @@ output = reports/results.json
 Note that `behave.ini` is only loaded when `pyproject.toml` has no
 `[tool.behave-runner]` section.
 
-!!! warning "Profiles require pyproject.toml"
-    Configuration profiles are only supported in `pyproject.toml`. The
-    `behave.ini` format does not support nested tables, so profiles cannot
-    be defined there.
+!!! note "Profiles in behave.ini"
+    Profiles are also supported in `behave.ini` using flat dot-notation keys:
+
+    ```ini
+    [behave-runner]
+    profiles.default.parallel = 4
+    profiles.default.dry_run = false
+    profiles.default.tags = @smoke, @fast
+    ```
+
+    These are automatically converted to nested dictionaries. However,
+    `pyproject.toml` is recommended for profiles because TOML's native
+    table syntax is more readable.
 
 ## Using the config command
 
