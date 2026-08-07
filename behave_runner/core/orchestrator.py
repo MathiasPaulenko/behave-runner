@@ -233,7 +233,7 @@ def _run_parallel(config: RunConfig) -> int:
     def _api() -> int:
         import behave_pool
 
-        result = behave_pool.run_parallel(cmd, workers=config.parallel)
+        result = behave_pool.run_parallel(cmd, workers=config.parallel)  # type: ignore[attr-defined]
         return int(result)
 
     return _try_optional(
@@ -257,7 +257,7 @@ def _run_with_retries(config: RunConfig) -> int:
     def _api() -> int:
         import behave_retry
 
-        result = behave_retry.run_with_retries(
+        result = behave_retry.run_with_retries(  # type: ignore[attr-defined]
             cmd, retries=config.retries, flaky_report=config.flaky_report
         )
         return int(result)
@@ -309,7 +309,7 @@ def _run_with_trace(config: RunConfig) -> int:
     def _api() -> int:
         import behave_trace
 
-        result = behave_trace.run_with_trace(
+        result = behave_trace.run_with_trace(  # type: ignore[attr-defined]
             cmd,
             ui=config.ui,
             debug=config.debug,
@@ -334,7 +334,7 @@ def _run_shard(config: RunConfig) -> int:
     def _api() -> int:
         import behave_pool
 
-        result = behave_pool.run_shard(cmd, shard=config.shard)
+        result = behave_pool.run_shard(cmd, shard=config.shard)  # type: ignore[attr-defined]
         return int(result)
 
     return _try_optional(
