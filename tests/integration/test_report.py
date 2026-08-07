@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import shutil
+import importlib
 from pathlib import Path
 
 import pytest
@@ -20,27 +20,21 @@ _FORMAT_PACKAGES = {
     "sheets": "behave_modern_sheets_report",
 }
 
-_FORMAT_CMDS = {
-    "console": "behave-modern-console-report",
-    "html": "behave-modern-html-report",
-    "md": "behave-modern-md-report",
-    "json": "behave-modern-json-report",
-    "sheets": "behave-modern-sheets-report",
-}
-
 
 @pytest.mark.parametrize("fmt", ["console", "html", "md", "json", "sheets"])
 def test_report_format(fmt: str) -> None:
-    """Test each report format when its formatter CLI is available."""
-    cmd = _FORMAT_CMDS[fmt]
-    if not shutil.which(cmd):
-        pytest.skip(f"{cmd} CLI not available")
+    """Test each report format when its formatter package is available."""
+    package = _FORMAT_PACKAGES[fmt]
+    try:
+        importlib.import_module(package)
+    except ImportError:
+        pytest.skip(f"{package} not installed")
     result = runner.invoke(app, ["report", "generate", "--format", fmt, "tests/fixtures/minimal"])
     assert result.exit_code == 0
 
 
 def test_report_without_dep() -> None:
-    """Test report degrades gracefully when formatter CLI not available."""
+    """Test report degrades gracefully when formatter package not available."""
     result = runner.invoke(
         app, ["report", "generate", "--format", "json", "tests/fixtures/minimal"]
     )

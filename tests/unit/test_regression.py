@@ -72,11 +72,11 @@ def test_run_config_no_profile_field() -> None:
 
 def test_report_format_sheets_accepted() -> None:
     """Ensure 'sheets' is an accepted format and 'xlsx' and 'pdf' are not."""
-    from behave_runner.commands.report import _FORMAT_PACKAGES
+    from behave_runner.core.orchestrator import _REPORT_FORMATTERS
 
-    assert "sheets" in _FORMAT_PACKAGES
-    assert "xlsx" not in _FORMAT_PACKAGES
-    assert "pdf" not in _FORMAT_PACKAGES
+    assert "sheets" in _REPORT_FORMATTERS
+    assert "xlsx" not in _REPORT_FORMATTERS
+    assert "pdf" not in _REPORT_FORMATTERS
 
 
 # --- Regression: config profile tags normalization from behave.ini ---
@@ -266,11 +266,11 @@ def test_matches_tags_include_and_exclude() -> None:
     assert matches_tags([], include_tags=[], exclude_tags=[])
 
 
-# --- Regression: _run_with_retries passes env vars in fallback paths ---
+# --- Regression: run() passes env vars for retries and scenario_timeout ---
 
 
-def test_run_with_retries_fallback_passes_env(monkeypatch) -> None:
-    """Ensure _run_with_retries passes env vars (scenario_timeout) in fallback paths."""
+def test_run_passes_env_vars_for_retries(monkeypatch) -> None:
+    """Ensure run() passes env vars (scenario_timeout, retries) to subprocess."""
     import subprocess
 
     from behave_runner.core import orchestrator
@@ -285,11 +285,12 @@ def test_run_with_retries_fallback_passes_env(monkeypatch) -> None:
         return FakeResult()
 
     monkeypatch.setattr(subprocess, "run", fake_run)
-    monkeypatch.setattr(orchestrator, "check_optional", lambda *a: False)
+    monkeypatch.setattr(orchestrator, "check_optional", lambda *a: True)
 
     config = RunConfig(scenario_timeout=42, retries=3)
-    orchestrator._run_with_retries(config)
+    orchestrator.run(config)
     assert captured_env.get("BEHAVE_SCENARIO_TIMEOUT") == "42"
+    assert captured_env.get("BEHAVE_RETRY_MAX_RETRIES") == "3"
 
 
 # --- Regression: find_latest_report only returns files, not directories ---
@@ -423,7 +424,7 @@ def test_max_failures_not_set_when_none() -> None:
 
 
 def test_run_sets_env_vars_in_os_environ(monkeypatch) -> None:
-    """Ensure run() sets BEHAVE_TIMEOUT in os.environ for external library subprocesses."""
+    """Ensure run() sets BEHAVE_TIMEOUT in os.environ for subprocess."""
     import os as os_module
 
     from behave_runner.core import orchestrator
@@ -431,11 +432,15 @@ def test_run_sets_env_vars_in_os_environ(monkeypatch) -> None:
     config = RunConfig(timeout=99)
     captured = {}
 
-    def capture_env(config):
-        captured["BEHAVE_TIMEOUT"] = os_module.environ.get("BEHAVE_TIMEOUT")
-        return 0
+    class FakeResult:
+        returncode = 0
 
-    monkeypatch.setattr(orchestrator, "_run_sequential", capture_env)
+    def capture_env(cmd, env=None, **kwargs):
+        captured["BEHAVE_TIMEOUT"] = os_module.environ.get("BEHAVE_TIMEOUT")
+        return FakeResult()
+
+    monkeypatch.setattr(orchestrator.subprocess, "run", capture_env)
+    monkeypatch.setattr(orchestrator, "check_optional", lambda *a: True)
     orchestrator.run(config)
     assert captured["BEHAVE_TIMEOUT"] == "99"
     # Ensure env var is restored after run
@@ -1412,33 +1417,6 @@ def test_set_config_value_dotted_key_parent_only_conflict(tmp_path: Path) -> Non
     # Only [tool.behave-runner.profiles.ci] exists, not [tool.behave-runner.profiles]
     with pytest.raises(ConfigError, match="subtable already exists"):
         _set_config_value(p, "profiles.ci.tags", _parse_value("smoke"))
-
-
-# --- Regression: _try_optional should catch all exceptions from optional deps ---
-
-
-def test_try_optional_catches_unexpected_exception(monkeypatch) -> None:
-    """_try_optional should fall back when optional dep raises non-ImportError."""
-    from behave_runner.core import orchestrator
-
-    # Simulate the optional package being installed
-    monkeypatch.setattr(orchestrator, "check_optional", lambda *a: True)
-
-    fallback_called = False
-
-    def _fallback() -> int:
-        nonlocal fallback_called
-        fallback_called = True
-        return 0
-
-    def _api() -> int:
-        raise ValueError("unexpected error from optional dep")
-
-    result = orchestrator._try_optional(
-        "test", "test_pkg", "test", "Falling back.", _fallback, _api
-    )
-    assert fallback_called
-    assert result == 0
 
 
 # --- Regression: _ini_flat_to_nested should detect key conflicts ---

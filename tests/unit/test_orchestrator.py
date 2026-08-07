@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import sys
-from unittest.mock import MagicMock
 
 import pytest
 
@@ -14,13 +13,15 @@ from behave_runner.core.orchestrator import run as run_behave
 def test_empty_config() -> None:
     config = RunConfig()
     cmd = build_behave_command(config)
-    assert cmd == ["behave", "features"]
+    assert cmd[:3] == [sys.executable, "-m", "behave"]
+    assert cmd[3:] == ["features"]
 
 
 def test_custom_features() -> None:
     config = RunConfig(features=["tests/fixtures/minimal/features"])
     cmd = build_behave_command(config)
-    assert cmd == ["behave", "tests/fixtures/minimal/features"]
+    assert cmd[:3] == [sys.executable, "-m", "behave"]
+    assert cmd[3:] == ["tests/fixtures/minimal/features"]
 
 
 def test_tags() -> None:
@@ -67,9 +68,17 @@ def test_format_and_outfile() -> None:
     config = RunConfig(fmt="json", outfile="reports/output.json")
     cmd = build_behave_command(config)
     assert "--format" in cmd
-    assert "json" in cmd
+    assert "behave_modern_json_report:ModernJSONFormatter" in cmd
     assert "--outfile" in cmd
     assert "reports/output.json" in cmd
+
+
+def test_format_builtin_passthrough() -> None:
+    """Non-report formats (plain, json, etc.) are passed through to behave."""
+    config = RunConfig(fmt="plain")
+    cmd = build_behave_command(config)
+    assert "--format" in cmd
+    assert "plain" in cmd
 
 
 def test_name() -> None:
@@ -169,126 +178,83 @@ def test_run_behave_subprocess_handles_os_error(monkeypatch) -> None:
     assert _run_behave_subprocess(["behave"], {}) == 2
 
 
-def test_try_optional_import_error_falls_back(monkeypatch) -> None:
-    """Ensure _try_optional falls back when the optional module is missing."""
-    from behave_runner.core.orchestrator import _try_optional
-
-    monkeypatch.setattr("behave_runner.core.orchestrator.check_optional", lambda *a, **k: True)
-    called = False
-
-    def fallback() -> int:
-        nonlocal called
-        called = True
-        return 7
-
-    def api_call() -> int:
-        raise ModuleNotFoundError("nonexistent_module_12345")
-
-    assert _try_optional("x", "nonexistent_module_12345", "x", "msg", fallback, api_call) == 7
-    assert called is True
+def test_parallel_passed_to_behave() -> None:
+    """--parallel is passed directly to behave."""
+    config = RunConfig(parallel=4)
+    cmd = build_behave_command(config)
+    assert "--parallel" in cmd
+    assert "4" in cmd
 
 
-def test_try_optional_attribute_error_falls_back(monkeypatch) -> None:
-    """Ensure _try_optional falls back on API mismatch."""
-    from behave_runner.core.orchestrator import _try_optional
-
-    monkeypatch.setattr("behave_runner.core.orchestrator.check_optional", lambda *a, **k: True)
-    called = False
-
-    def fallback() -> int:
-        nonlocal called
-        called = True
-        return 7
-
-    def api_call() -> int:
-        raise AttributeError("missing")
-
-    assert _try_optional("x", "pkg", "x", "msg", fallback, api_call) == 7
-    assert called is True
+def test_trace_formatter_added() -> None:
+    """trace=True adds behave_trace:TraceFormatter to the command."""
+    config = RunConfig(trace=True)
+    cmd = build_behave_command(config)
+    assert "behave_trace:TraceFormatter" in cmd
 
 
-def test_try_optional_file_not_found(monkeypatch) -> None:
-    """Ensure _try_optional reports a helpful error when CLI is missing."""
-    from behave_runner.core.orchestrator import _try_optional
-
-    monkeypatch.setattr("behave_runner.core.orchestrator.check_optional", lambda *a, **k: True)
-
-    def api_call() -> int:
-        raise FileNotFoundError("behave-pool")
-
-    assert _try_optional("x", "behave_pool", "x", "msg", lambda: 0, api_call) == 2
+def test_ui_formatter_added() -> None:
+    """ui=True adds behave_trace:TraceFormatter to the command."""
+    config = RunConfig(ui=True)
+    cmd = build_behave_command(config)
+    assert "behave_trace:TraceFormatter" in cmd
 
 
-def test_run_parallel_with_optional_package(monkeypatch) -> None:
-    """Ensure _run_parallel uses behave-pool when available."""
+def test_retries_env_var() -> None:
+    """retries is passed as env var."""
+    from behave_runner.core.orchestrator import _build_env
 
-    from behave_runner.core.orchestrator import _run_parallel
-
-    fake_pool = MagicMock()
-    fake_pool.run_parallel.return_value = 0
-    monkeypatch.setitem(sys.modules, "behave_pool", fake_pool)
-    monkeypatch.setattr("behave_runner.core.orchestrator.check_optional", lambda *a, **k: True)
-
-    config = RunConfig(features=["tests/fixtures/minimal/features"], parallel=2)
-    assert _run_parallel(config) == 0
-    fake_pool.run_parallel.assert_called_once()
+    config = RunConfig(retries=3)
+    env = _build_env(config)
+    assert env["BEHAVE_RETRY_MAX_RETRIES"] == "3"
 
 
-def test_run_with_retries_with_optional_package(monkeypatch) -> None:
-    """Ensure _run_with_retries uses behave-retry when available."""
+def test_priority_env_var() -> None:
+    """priority_order is passed as env var."""
+    from behave_runner.core.orchestrator import _build_env
 
-    from behave_runner.core.orchestrator import _run_with_retries
-
-    fake_retry = MagicMock()
-    fake_retry.run_with_retries.return_value = 0
-    monkeypatch.setitem(sys.modules, "behave_retry", fake_retry)
-    monkeypatch.setattr("behave_runner.core.orchestrator.check_optional", lambda *a, **k: True)
-
-    config = RunConfig(features=["tests/fixtures/minimal/features"], retries=2)
-    assert _run_with_retries(config) == 0
-    fake_retry.run_with_retries.assert_called_once()
+    config = RunConfig(priority_order=True)
+    env = _build_env(config)
+    assert env["BEHAVE_PRIORITY_ORDER"] == "1"
 
 
-def test_run_with_priority_with_optional_package(monkeypatch) -> None:
-    """Ensure _run_with_priority uses behave-priority when available."""
+def test_fail_fast_env_var() -> None:
+    """fail_fast is passed as env var."""
+    from behave_runner.core.orchestrator import _build_env
 
-    from behave_runner.core.orchestrator import _run_with_priority
-
-    fake_priority = MagicMock()
-    fake_priority.run_with_priority.return_value = 0
-    monkeypatch.setitem(sys.modules, "behave_priority", fake_priority)
-    monkeypatch.setattr("behave_runner.core.orchestrator.check_optional", lambda *a, **k: True)
-
-    config = RunConfig(features=["tests/fixtures/minimal/features"], priority_order=True)
-    assert _run_with_priority(config) == 0
-    fake_priority.run_with_priority.assert_called_once()
+    config = RunConfig(fail_fast=True)
+    env = _build_env(config)
+    assert env["BEHAVE_PRIORITY_FAIL_FAST"] == "1"
 
 
-def test_run_with_trace_with_optional_package(monkeypatch) -> None:
-    """Ensure _run_with_trace uses behave-trace when available."""
+def test_shard_env_var() -> None:
+    """shard is passed as env var."""
+    from behave_runner.core.orchestrator import _build_env
 
-    from behave_runner.core.orchestrator import _run_with_trace
-
-    fake_trace = MagicMock()
-    fake_trace.run_with_trace.return_value = 0
-    monkeypatch.setitem(sys.modules, "behave_trace", fake_trace)
-    monkeypatch.setattr("behave_runner.core.orchestrator.check_optional", lambda *a, **k: True)
-
-    config = RunConfig(features=["tests/fixtures/minimal/features"], trace=True)
-    assert _run_with_trace(config) == 0
-    fake_trace.run_with_trace.assert_called_once()
+    config = RunConfig(shard="1/3")
+    env = _build_env(config)
+    assert env["BEHAVE_POOL_SHARD"] == "1/3"
 
 
-def test_run_shard_with_optional_package(monkeypatch) -> None:
-    """Ensure _run_shard uses behave-pool sharding when available."""
+def test_flaky_report_env_var() -> None:
+    """flaky_report is passed as env var."""
+    from behave_runner.core.orchestrator import _build_env
 
-    from behave_runner.core.orchestrator import _run_shard
+    config = RunConfig(flaky_report=True)
+    env = _build_env(config)
+    assert env["BEHAVE_RETRY_FLAKY_REPORT"] == "1"
 
-    fake_pool = MagicMock()
-    fake_pool.run_shard.return_value = 0
-    monkeypatch.setitem(sys.modules, "behave_pool", fake_pool)
-    monkeypatch.setattr("behave_runner.core.orchestrator.check_optional", lambda *a, **k: True)
 
-    config = RunConfig(features=["tests/fixtures/minimal/features"], shard="1/2")
-    assert _run_shard(config) == 0
-    fake_pool.run_shard.assert_called_once()
+def test_report_format_resolved() -> None:
+    """Report format names are resolved to their formatter class paths."""
+    config = RunConfig(fmt="console")
+    cmd = build_behave_command(config)
+    assert "behave_modern_console_report:ModernFormatter" in cmd
+
+    config = RunConfig(fmt="md")
+    cmd = build_behave_command(config)
+    assert "behave_modern_md_report:BehaveMarkdownFormatter" in cmd
+
+    config = RunConfig(fmt="sheets")
+    cmd = build_behave_command(config)
+    assert "behave_modern_sheets_report:XLSXFormatter" in cmd

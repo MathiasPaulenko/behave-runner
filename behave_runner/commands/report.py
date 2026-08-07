@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-import subprocess  # nosec B404
 from pathlib import Path
 from typing import Literal
 
 import typer
 from rich.console import Console
 
-from behave_runner.core.deps import check_optional
+from behave_runner.core.orchestrator import RunConfig, run
 from behave_runner.core.output import ensure_output_dir, open_latest_report
 
 console = Console()
@@ -21,24 +20,6 @@ report_app = typer.Typer(
 )
 
 FormatType = Literal["console", "html", "md", "json", "sheets", "file"]
-
-_FORMAT_PACKAGES: dict[str, str] = {
-    "console": "behave_modern_console_report",
-    "html": "behave_modern_html_report",
-    "md": "behave_modern_md_report",
-    "json": "behave_modern_json_report",
-    "sheets": "behave_modern_sheets_report",
-    "file": "behave_modern_file_report",
-}
-
-_FORMAT_EXTRAS: dict[str, str] = {
-    "console": "report-console",
-    "html": "report-html",
-    "md": "report-md",
-    "json": "report-json",
-    "sheets": "report-sheets",
-    "file": "report-file",
-}
 
 
 @report_app.command(name="generate")
@@ -60,39 +41,43 @@ def report_command(
         dir_okay=True,
     ),
 ) -> None:
-    """Generate reports from test results using behave-modern-*-report."""
-    if fmt not in _FORMAT_PACKAGES:
-        console.print(
-            f"[red]Unknown format: '{fmt}'. Choose from: {', '.join(_FORMAT_PACKAGES)}[/red]"
-        )
-        raise typer.Exit(2)
+    """Generate reports from test results using behave-modern-*-report.
 
-    package = _FORMAT_PACKAGES[fmt]
-    extra = _FORMAT_EXTRAS[fmt]
-    if not check_optional(extra, package, f"format {fmt}"):
+    This runs behave with the appropriate --format flag for the chosen
+    report format. The report is written to the output directory if
+    specified, otherwise to the current directory.
+    """
+    valid_formats = {"console", "html", "md", "json", "sheets", "file"}
+    if fmt not in valid_formats:
+        console.print(
+            f"[red]Unknown format: '{fmt}'. Choose from: {', '.join(sorted(valid_formats))}[/red]"
+        )
         raise typer.Exit(2)
 
     if output is not None:
         ensure_output_dir(output)
 
-    cmd = [f"behave-modern-{fmt}-report"]  # nosec B607
+    # Build the output file path from the output directory and format
+    outfile = None
     if output is not None:
-        cmd.extend(["--output", str(output)])
-    feature_paths = [str(f) for f in features] if features else ["features"]
-    cmd.extend(feature_paths)
+        extensions = {
+            "json": "report.json",
+            "html": "report.html",
+            "md": "report.md",
+            "sheets": "report.xlsx",
+            "file": "report.txt",
+            "console": "report.txt",
+        }
+        outfile = str(output / extensions.get(fmt, "report.txt"))
 
-    try:
-        result = subprocess.run(cmd, check=False)  # noqa: S603  # nosec B603
-        raise typer.Exit(result.returncode)
-    except FileNotFoundError:
-        console.print(
-            f"[red]Error: behave-modern-{fmt}-report not found. "
-            f"Install with: pip install {package.replace('_', '-')}[/red]"
-        )
-        raise typer.Exit(2) from None
-    except OSError as e:
-        console.print(f"[red]Error running report command: {e}[/red]")
-        raise typer.Exit(2) from None
+    feature_paths = [str(f) for f in features] if features else ["features"]
+    config = RunConfig(
+        features=feature_paths,
+        fmt=fmt,
+        outfile=outfile,
+    )
+    exit_code = run(config)
+    raise typer.Exit(exit_code)
 
 
 @report_app.command(name="show")

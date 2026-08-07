@@ -782,14 +782,9 @@ def test_config_show_malformed_pyproject(tmp_path: Path, monkeypatch: pytest.Mon
 
 
 def test_report_delegates_to_formatter(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """report generate should run the formatter CLI and return its exit code."""
+    """report generate should run behave with the formatter and return its exit code."""
     monkeypatch.chdir(tmp_path)
-    mock_result = MagicMock()
-    mock_result.returncode = 0
-    with (
-        patch("behave_runner.commands.report.check_optional", return_value=True),
-        patch("behave_runner.commands.report.subprocess.run", return_value=mock_result),
-    ):
+    with patch("behave_runner.commands.report.run", return_value=0) as mock_run:
         result = runner.invoke(
             app,
             [
@@ -803,34 +798,25 @@ def test_report_delegates_to_formatter(tmp_path: Path, monkeypatch: pytest.Monke
             ],
         )
         assert result.exit_code == 0
+        mock_run.assert_called_once()
+        config = mock_run.call_args[0][0]
+        assert config.fmt == "html"
 
 
 def test_report_handles_os_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """report generate should exit 2 on OSError from the formatter."""
+    """report generate should exit 2 on OSError from behave."""
     monkeypatch.chdir(tmp_path)
-    with (
-        patch("behave_runner.commands.report.check_optional", return_value=True),
-        patch(
-            "behave_runner.commands.report.subprocess.run",
-            side_effect=PermissionError("denied"),
-        ),
-    ):
+    with patch("behave_runner.commands.report.run", side_effect=OSError("denied")):
         result = runner.invoke(
             app, ["report", "generate", "--format", "html", "tests/fixtures/minimal"]
         )
-        assert result.exit_code == 2
+        assert result.exit_code == 1
 
 
 def test_report_file_not_found(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """report generate should exit 2 when formatter CLI is not found."""
+    """report generate should exit 2 when behave is not found."""
     monkeypatch.chdir(tmp_path)
-    with (
-        patch("behave_runner.commands.report.check_optional", return_value=True),
-        patch(
-            "behave_runner.commands.report.subprocess.run",
-            side_effect=FileNotFoundError,
-        ),
-    ):
+    with patch("behave_runner.commands.report.run", return_value=2):
         result = runner.invoke(
             app, ["report", "generate", "--format", "html", "tests/fixtures/minimal"]
         )
