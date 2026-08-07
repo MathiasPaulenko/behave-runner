@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "behave-runner"
-version = "1.0.0"
+version = "1.0.1"
 description = "A unified CLI entry point for the Behave BDD ecosystem, with subcommands for running, listing, selecting, linting, formatting, watching, reporting and more."
 readme = "README.md"
 requires-python = ">=3.11"

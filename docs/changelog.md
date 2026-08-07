@@ -6,6 +6,12 @@ at the repository root.
 
 ## Unreleased
 
+## [1.0.1] - 2026-08-07
+
+- Updated README and package description to English.
+- Added repository topics on GitHub.
+- No functional changes.
+
 ## [1.0.0] - 2026-08-07
 
 - Stable release of `behave-runner`.
