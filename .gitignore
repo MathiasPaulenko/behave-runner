@@ -28,6 +28,9 @@ ref/
 .DS_Store
 Thumbs.db
 
+# Recorded sessions
+recordings/
+
 # IDE
 .idea/
 .vscode/
