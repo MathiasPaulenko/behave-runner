@@ -12,7 +12,7 @@ def test_find_project_root_finds_pyproject(tmp_path: Path) -> None:
     assert find_project_root(tmp_path) == tmp_path
 
 
-def test_find_project_root_returns_cwd_if_no_pyproject(monkeypatch) -> None:
-    monkeypatch.chdir("/tmp")
-    result = find_project_root(Path("/tmp"))
+def test_find_project_root_returns_cwd_if_no_pyproject(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.chdir(tmp_path)
+    result = find_project_root(tmp_path)
     assert isinstance(result, Path)
