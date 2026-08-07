@@ -55,18 +55,92 @@ pip install "behave-runner[all]"
 For development:
 
 ```bash
+git clone https://github.com/MathiasPaulenko/behave-runner.git
+cd behave-runner
 pip install -e ".[dev]"
 pre-commit install
 ```
 
-## Quick Start
+## Getting Started
+
+### 1. Initialize a project
 
 ```bash
 behave-runner init
-behave-runner run
+```
+
+This creates a standard Behave layout: `features/`, `features/steps/` and
+`environment.py`.
+
+### 2. List scenarios
+
+```bash
 behave-runner list
+```
+
+Shows every scenario in the project without running anything.
+
+### 3. Run the suite
+
+```bash
+behave-runner run
+```
+
+Runs every feature. You can also target a specific feature or tag:
+
+```bash
+behave-runner run --tags @smoke
+behave-runner run features/login.feature
+```
+
+### 4. Filter with `select`
+
+```bash
+behave-runner select --tag @smoke
+behave-runner select --name "login"
+```
+
+### 5. Watch files
+
+```bash
 behave-runner watch
 ```
+
+Re-runs `behave-runner run` whenever a `.feature`, `.py` or config file
+changes. Press `q` to quit.
+
+### 6. Lint and format
+
+```bash
+behave-runner lint
+behave-runner format
+```
+
+### 7. Reports and traces
+
+```bash
+behave-runner report generate --format html
+behave-runner report show
+```
+
+With `behave-trace` installed:
+
+```bash
+behave-runner trace show
+```
+
+### Configuration
+
+You can store profiles in `pyproject.toml`:
+
+```toml
+[tool.behave-runner]
+profiles.default.tags = ["~@wip"]
+profiles.smoke.tags = ["@smoke"]
+```
+
+Or use a classic `behave.ini` file. Run `behave-runner config` to inspect and
+switch profiles.
 
 ## Commands
 
@@ -88,6 +162,52 @@ behave-runner watch
 | `impact`    | Detect scenarios affected by code changes.               |
 | `open`      | Open the latest report or trace in the default browser.  |
 | `config`    | Manage configuration profiles.                           |
+
+## Ecosystem
+
+`behave-runner` is the entry point for the BehaveLib ecosystem. The libraries
+below can be installed individually or through `behave-runner` extras.
+
+<!-- markdownlint-disable MD013 -->
+
+| Library                         | Category   | Purpose                                  | Extra            |
+| ------------------------------- | ---------- | ---------------------------------------- | ---------------- |
+| `behave`                        | Core       | BDD framework.                           | core             |
+| `behave-kit`                    | Core       | Timeouts and config profiles.            | core             |
+| `behave-model`                  | Core       | Feature and scenario parsing.            | core             |
+| `behave-pool`                   | Execution  | Parallel and sharded runs.               | `parallel`       |
+| `behave-priority`               | Execution  | Priority ordering and smoke flags.       | `priority`       |
+| `behave-retry`                  | Execution  | Retry and flaky report support.          | `retry`          |
+| `behave-trace`                  | Debug      | Trace viewer and UI.                     | `trace`          |
+| `behave-doctor`                 | Quality    | Project health and impact analysis.      | `doctor`         |
+| `behave-lint`                   | Quality    | Feature file linting.                    | `lint`           |
+| `behave-format`                 | Quality    | Feature file formatting.                 | `format`         |
+| `behave-gen`                    | Scaffold   | Project and feature generation.          | `gen`            |
+| `behave-steplib`                | Steps      | Step library management.                 | `steplib`        |
+| `behave-comments`               | Utility    | Comment metadata extraction.             | `comments`       |
+| `behave-tables`                 | Utility    | Table helpers.                           | —                |
+| `wavexis`                       | Recording  | Browser session recording.               | `record`         |
+| `behave-modern-console-report`  | Reporting  | Console report.                          | `report-console` |
+| `behave-modern-html-report`     | Reporting  | HTML report.                             | `report-html`    |
+| `behave-modern-md-report`       | Reporting  | Markdown report.                         | `report-md`      |
+| `behave-modern-json-report`     | Reporting  | JSON report.                             | `report-json`    |
+| `behave-modern-sheets-report`   | Reporting  | XLSX/CSV report.                         | `report-sheets`  |
+| `behave-modern-file-report`     | Reporting  | File report.                             | `report-file`    |
+
+<!-- markdownlint-enable MD013 -->
+
+Install groups:
+
+```bash
+# Execution extras
+pip install "behave-runner[parallel,priority,retry]"
+
+# Reporting extras
+pip install "behave-runner[report-html,report-json]"
+
+# Everything
+pip install "behave-runner[all]"
+```
 
 ## Documentation
 
