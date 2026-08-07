@@ -9,67 +9,137 @@ description = "CLI completa para Behave con subcomandos — punto de entrada uni
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
-keywords = ["behave", "bdd", "cli", "runner", "watch", "impact-analysis", "test-runner"]
-authors = [
-    { name = "Mathias Paulenko", email = "mathias.paulenko@outlook.com" },
-]
+license-files = ["LICENSE"]
+authors = [{ name = "Mathias Paulenko" }]
+keywords = ["behave", "bdd", "cli", "runner", "watch", "impact-analysis", "test-runner", "typer"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
-    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Software Development :: Testing",
-    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: Testing :: BDD",
+    "Typing :: Typed",
 ]
 dependencies = [
     "typer>=0.12",
     "rich>=13.0",
     "behave>=1.2.6",
     "behave-kit>=0.1.0",
+    "behave-model>=1.0",
 ]
 
 [project.optional-dependencies]
 parallel = ["behave-pool>=0.1.0"]
 priority = ["behave-priority>=0.1.0"]
+retry = ["behave-retry>=0.1.0"]
 trace = ["behave-trace>=0.1.0"]
-all = [
-    "behave-pool>=0.1.0",
-    "behave-priority>=0.1.0",
-    "behave-trace>=0.1.0",
-]
+lint = ["behave-lint>=0.1.0"]
+format = ["behave-format>=0.1.0"]
+doctor = ["behave-doctor>=0.1.0"]
+gen = ["behave-gen>=0.1.0"]
+steplib = ["behave-steplib>=0.1.0"]
+comments = ["behave-comments>=0.1.0"]
+report-html = ["behave-modern-html-report>=0.1.0"]
+report-md = ["behave-modern-md-report>=0.1.0"]
+report-json = ["behave-modern-json-report>=0.1.0"]
+report-console = ["behave-modern-console-report>=0.1.0"]
+report-sheets = ["behave-modern-sheets-report>=0.1.0"]
+report-file = ["behave-modern-file-report>=0.1.0"]
+record = ["wavexis>=0.1.0"]
 dev = [
     "pytest>=8.0",
     "pytest-cov>=5.0",
     "ruff>=0.5",
     "mypy>=1.10",
+    "build>=1.0",
+    "pre-commit>=3.0",
+]
+docs = [
+    "mkdocs>=1.6",
+    "mkdocs-material>=9.5",
+    "mkdocstrings[python]>=0.24",
+]
+all = [
+    "behave-pool>=0.1.0",
+    "behave-priority>=0.1.0",
+    "behave-retry>=0.1.0",
+    "behave-trace>=0.1.0",
+    "behave-lint>=0.1.0",
+    "behave-format>=0.1.0",
+    "behave-doctor>=0.1.0",
+    "behave-gen>=0.1.0",
+    "behave-steplib>=0.1.0",
+    "behave-comments>=0.1.0",
+    "behave-modern-html-report>=0.1.0",
+    "behave-modern-md-report>=0.1.0",
+    "behave-modern-json-report>=0.1.0",
+    "behave-modern-console-report>=0.1.0",
+    "behave-modern-sheets-report>=0.1.0",
+    "behave-modern-file-report>=0.1.0",
+    "wavexis>=0.1.0",
 ]
 
+[project.scripts]
+behave-runner = "behave_runner.__main__:main"
+
 [project.urls]
+Documentation = "https://mathiaspaulenko.github.io/behave-runner/"
 Homepage = "https://github.com/MathiasPaulenko/behave-runner"
 Repository = "https://github.com/MathiasPaulenko/behave-runner"
 Issues = "https://github.com/MathiasPaulenko/behave-runner/issues"
-Changelog = "https://github.com/MathiasPaulenko/behave-runner/blob/main/CHANGES.md"
+Changelog = "https://github.com/MathiasPaulenko/behave-runner/blob/main/CHANGELOG.md"
 
-[project.scripts]
-behave-runner = "behave_runner.cli:main"
+[tool.hatch.build.targets.wheel]
+packages = ["behave_runner"]
 
-[tool.hatch.version]
-path = "behave_runner/__init__.py"
+[tool.hatch.build.targets.wheel.force-include]
+"behave_runner/py.typed" = "behave_runner/py.typed"
 
 [tool.ruff]
 target-version = "py311"
 line-length = 100
+extend-exclude = ["tests/fixtures"]
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "N", "W", "UP"]
+select = ["E", "F", "W", "I", "N", "UP", "B", "SIM"]
+ignore = ["B008"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["behave_runner"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
 
 [tool.mypy]
-python_version = "3.11"
 strict = true
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "tests.e2e.test_saucedemo.steps.*"
+disable_error_code = ["untyped-decorator", "type-arg"]
+
+[[tool.mypy.overrides]]
+module = "tests.e2e.test_pokemon_api.steps.*"
+disable_error_code = ["untyped-decorator"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-v --cov=behave_runner --cov-report=term-missing"
+addopts = "-ra --strict-markers"
+markers = [
+    "e2e_web: marks tests as end-to-end web tests (deselect with '-m \"not e2e_web\"')",
+    "e2e_api: marks tests as end-to-end API tests (deselect with '-m \"not e2e_api\"')",
+]
+
+[tool.coverage.run]
+source = ["behave_runner"]
+omit = ["*/tests/*"]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 90

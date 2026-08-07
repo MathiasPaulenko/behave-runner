@@ -1,0 +1,97 @@
+site_name: behave-runner
+site_description: CLI completa para Behave con subcomandos — punto de entrada unificado del ecosistema BehaveLib
+site_author: Mathias Paulenko
+site_url: https://mathiaspaulenko.github.io/behave-runner/
+repo_url: https://github.com/MathiasPaulenko/behave-runner
+repo_name: MathiasPaulenko/behave-runner
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.expand
+    - navigation.indexes
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  icon:
+    repo: fontawesome/brands/github
+
+nav:
+  - Home: index.md
+  - Guide:
+      - Installation: installation.md
+      - Quick Start: quickstart.md
+      - CLI: cli.md
+      - Configuration: configuration.md
+  - Commands:
+      - run: commands/run.md
+      - watch: commands/watch.md
+      - list: commands/list.md
+      - select: commands/select.md
+      - lint: commands/lint.md
+      - format: commands/format.md
+      - doctor: commands/doctor.md
+      - init: commands/init.md
+      - generate: commands/generate.md
+      - record: commands/record.md
+      - report: commands/report.md
+      - trace: commands/trace.md
+      - steps: commands/steps.md
+      - impact: commands/impact.md
+      - open: commands/open.md
+      - config: commands/config.md
+  - Reference:
+      - Architecture: architecture.md
+      - Ecosystem: ecosystem.md
+      - Python API: python-api.md
+  - Integrations:
+      - CI/CD: ci-cd.md
+      - Contributing: contributing.md
+  - FAQ: faq.md
+  - Changelog: changelog.md
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            show_source: true
+            show_root_heading: true
+            show_signature_annotations: true
+            separate_signature: true
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+            docstring_style: google
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
