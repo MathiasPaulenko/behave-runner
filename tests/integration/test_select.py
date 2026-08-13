@@ -81,3 +81,136 @@ def test_select_help() -> None:
     result = runner.invoke(app, ["select", "--help"])
     assert result.exit_code == 0
     assert "select" in result.stdout.lower()
+
+
+# --- Tests with full fixture ---
+
+
+def test_select_full_all_scenarios() -> None:
+    """Test select on full fixture returns all 10 scenarios."""
+    result = runner.invoke(app, ["select", "--format", "json", "tests/fixtures/full/features"])
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    assert len(data) == 10
+
+
+def test_select_full_tags_smoke_and_fast() -> None:
+    """Test --tags @smoke --tags @fast (AND) on full fixture."""
+    result = runner.invoke(
+        app,
+        [
+            "select",
+            "--tags",
+            "@smoke",
+            "--tags",
+            "@fast",
+            "--format",
+            "json",
+            "tests/fixtures/full/features",
+        ],
+    )
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    assert len(data) == 2
+    for s in data:
+        assert "@smoke" in s["tags"]
+        assert "@fast" in s["tags"]
+
+
+def test_select_full_tags_exclude_smoke() -> None:
+    """Test ~@smoke excludes all smoke scenarios."""
+    result = runner.invoke(
+        app, ["select", "--tags", "~@smoke", "--format", "names", "tests/fixtures/full/features"]
+    )
+    assert result.exit_code == 0
+    lines = [line for line in result.stdout.strip().split("\n") if line]
+    assert len(lines) == 5
+    for line in lines:
+        assert "login" not in line.lower() or "lockout" in line.lower()
+
+
+def test_select_full_feature_name_case_insensitive() -> None:
+    """Test --feature is case-insensitive."""
+    result = runner.invoke(
+        app,
+        ["select", "--feature", "shopping", "--format", "names", "tests/fixtures/full/features"],
+    )
+    assert result.exit_code == 0
+    lines = [line for line in result.stdout.strip().split("\n") if line]
+    assert len(lines) == 4
+
+
+def test_select_full_pattern_and_tags_combined() -> None:
+    """Test --pattern and --tags combined."""
+    result = runner.invoke(
+        app,
+        [
+            "select",
+            "--pattern",
+            "cart.*",
+            "--tags",
+            "@smoke",
+            "--format",
+            "json",
+            "tests/fixtures/full/features",
+        ],
+    )
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    assert len(data) == 2
+    for s in data:
+        assert "cart" in s["scenario"].lower()
+        assert "@smoke" in s["tags"]
+
+
+def test_select_full_json_structure() -> None:
+    """Test JSON output has correct structure."""
+    result = runner.invoke(app, ["select", "--format", "json", "tests/fixtures/full/features"])
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    for s in data:
+        assert "feature" in s
+        assert "scenario" in s
+        assert "location" in s
+        assert "tags" in s
+        assert isinstance(s["tags"], list)
+
+
+def test_select_full_names_format() -> None:
+    """Test --format names on full fixture."""
+    result = runner.invoke(app, ["select", "--format", "names", "tests/fixtures/full/features"])
+    assert result.exit_code == 0
+    lines = [line for line in result.stdout.strip().split("\n") if line]
+    assert len(lines) == 10
+
+
+def test_select_full_text_format() -> None:
+    """Test default text format on full fixture."""
+    result = runner.invoke(app, ["select", "tests/fixtures/full/features"])
+    assert result.exit_code == 0
+    assert "Selected Scenarios" in result.stdout
+    assert "Authentication" in result.stdout
+    assert "Shopping cart" in result.stdout
+
+
+def test_select_full_no_matches() -> None:
+    """Test --feature with nonexistent name returns empty."""
+    result = runner.invoke(
+        app,
+        ["select", "--feature", "Nonexistent", "--format", "json", "tests/fixtures/full/features"],
+    )
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    assert len(data) == 0
+
+
+def test_select_full_invalid_format() -> None:
+    """Test invalid format exits with code 2."""
+    result = runner.invoke(app, ["select", "--format", "invalid", "tests/fixtures/full/features"])
+    assert result.exit_code == 2
+
+
+def test_select_full_invalid_regex() -> None:
+    """Test invalid regex pattern exits with code 2."""
+    result = runner.invoke(app, ["select", "--pattern", "[invalid", "tests/fixtures/full/features"])
+    assert result.exit_code == 2

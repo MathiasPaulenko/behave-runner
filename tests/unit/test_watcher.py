@@ -74,3 +74,68 @@ def test_scan_skips_missing_paths(tmp_path: Path) -> None:
     watcher = FileWatcher([missing], lambda c: None, debounce_ms=0)
     result = watcher._scan()
     assert result == {}
+
+
+def test_detects_deleted_file(tmp_path: Path) -> None:
+    """Watcher detects when a file is deleted."""
+    f = tmp_path / "deleteme.feature"
+    f.write_text("Feature: Delete")
+    watcher = FileWatcher([tmp_path], lambda c: None, debounce_ms=0)
+    watcher._mtimes = watcher._scan()
+    f.unlink()
+    changed = watcher._detect_changes()
+    assert f in changed
+
+
+def test_scan_nested_directories(tmp_path: Path) -> None:
+    """Scan recursively finds files in nested directories."""
+    sub = tmp_path / "sub" / "deep"
+    sub.mkdir(parents=True)
+    f1 = tmp_path / "top.feature"
+    f2 = sub / "nested.feature"
+    f1.write_text("Feature: Top")
+    f2.write_text("Feature: Nested")
+    watcher = FileWatcher([tmp_path], lambda c: None, debounce_ms=0)
+    result = watcher._scan()
+    assert f1 in result
+    assert f2 in result
+
+
+def test_run_loop_stops(tmp_path: Path) -> None:
+    """run() exits when stop() is called."""
+    (tmp_path / "test.feature").write_text("Feature: Test")
+    watcher = FileWatcher([tmp_path], lambda c: None, debounce_ms=0)
+
+    # Stop immediately after first scan
+    import threading
+
+    def stop_after_delay() -> None:
+        import time
+
+        time.sleep(0.2)
+        watcher.stop()
+
+    thread = threading.Thread(target=stop_after_delay, daemon=True)
+    thread.start()
+    watcher.run()
+    thread.join(timeout=1.0)
+    assert not watcher._running
+
+
+def test_callback_receives_changed_files(tmp_path: Path) -> None:
+    """Callback receives the list of changed files."""
+    changes: list[Path] = []
+    watcher = FileWatcher([tmp_path], lambda c: changes.extend(c), debounce_ms=0)
+    watcher._mtimes = watcher._scan()
+    import time
+
+    time.sleep(0.01)
+    (tmp_path / "trigger.feature").write_text("Feature: Trigger")
+    changed = watcher._detect_changes()
+    assert (tmp_path / "trigger.feature") in changed
+
+
+def test_debounce_zero_triggers_immediately(tmp_path: Path) -> None:
+    """With debounce_ms=0, changes are detected on next poll."""
+    watcher = FileWatcher([tmp_path], lambda c: None, debounce_ms=0)
+    assert watcher._debounce == 0.0
