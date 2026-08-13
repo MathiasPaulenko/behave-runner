@@ -2,6 +2,38 @@
 
 ## Unreleased
 
+## [1.2.0] - 2026-08-13
+
+### Fixed
+
+- Fixed formatter resolution in `orchestrator.py`: changed `_REPORT_FORMATTERS`
+  from entry point names to scoped names (`module:Class`) so behave 1.2.6 can
+  resolve them via `load_formatter_class()`.
+- Fixed `--parallel` being passed to behave without checking if `behave-pool`
+  is functionally installed. Added `_is_package_functional()` helper that
+  verifies a package has real `.py` files, not just an empty namespace.
+- Fixed `--runner behave_pool` being passed to behave (not a valid CLI flag).
+- Fixed `--shard` being passed as a CLI flag instead of only via
+  `BEHAVE_POOL_SHARD` environment variable.
+- Fixed regression tests failing on Windows due to cross-drive `os.path.relpath`
+  errors by mocking `orchestrator.run` and using `monkeypatch.chdir`.
+
+### Added
+
+- Added comprehensive `behave` project fixture (`tests/fixtures/full/`) with
+  3 features, 10 scenarios, tags, hooks, and intentional failures.
+- Added integration tests for `select` command with full fixture (11 tests).
+- Added integration tests for `steps` command (13 tests).
+- Added integration tests for `trace` command (7 tests).
+- Added integration tests for `watch` command (3 tests).
+- Added unit tests for `FileWatcher` (5 tests: deleted files, nested dirs,
+  run loop, callback, debounce).
+- Added integration tests for `run` command with real execution (12 tests).
+
+### Changed
+
+- Updated `.gitignore` to cover generated reports and build artifacts.
+
 ## [1.1.0] - 2026-08-07
 
 ### Fixed
