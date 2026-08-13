@@ -28,6 +28,16 @@ ref/
 .DS_Store
 Thumbs.db
 
+# Generated reports (from behave-runner report generate)
+report.xlsx
+report.json
+report.html
+report.md
+report.txt
+behave-modern-md-report.md
+.behave-sheets-history.json
+trace.json
+
 # Recorded sessions
 recordings/
 
