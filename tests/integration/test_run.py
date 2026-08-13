@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib.util
 import textwrap
 from pathlib import Path
 from unittest.mock import patch
@@ -15,6 +16,11 @@ runner = CliRunner()
 
 FIXTURE = "tests/fixtures/minimal/features"
 PRIORITY_FIXTURE = "tests/fixtures/priority/features"
+
+
+def _has_formatter(pkg: str) -> bool:
+    """Check if a formatter package is installed."""
+    return importlib.util.find_spec(pkg) is not None
 
 
 # ---------------------------------------------------------------------------
@@ -87,12 +93,20 @@ def test_run_format_json() -> None:
     assert result.exit_code == 0
 
 
+@pytest.mark.skipif(
+    not _has_formatter("behave_modern_console_report"),
+    reason="behave-modern-console-report not installed",
+)
 def test_run_format_console() -> None:
     """--format console produces modern console output."""
     result = runner.invoke(app, ["run", "--format", "console", FIXTURE])
     assert result.exit_code == 0
 
 
+@pytest.mark.skipif(
+    not _has_formatter("behave_modern_html_report"),
+    reason="behave-modern-html-report not installed",
+)
 def test_run_format_html(tmp_path: Path) -> None:
     """--format html produces an HTML report."""
     outfile = str(tmp_path / "report.html")
@@ -100,12 +114,20 @@ def test_run_format_html(tmp_path: Path) -> None:
     assert result.exit_code == 0
 
 
+@pytest.mark.skipif(
+    not _has_formatter("behave_modern_md_report"),
+    reason="behave-modern-md-report not installed",
+)
 def test_run_format_md() -> None:
     """--format md produces a Markdown report."""
     result = runner.invoke(app, ["run", "--format", "md", FIXTURE])
     assert result.exit_code == 0
 
 
+@pytest.mark.skipif(
+    not _has_formatter("behave_modern_sheets_report"),
+    reason="behave-modern-sheets-report not installed",
+)
 def test_run_format_sheets(tmp_path: Path) -> None:
     """--format sheets produces an XLSX report."""
     outfile = str(tmp_path / "report.xlsx")
@@ -113,6 +135,10 @@ def test_run_format_sheets(tmp_path: Path) -> None:
     assert result.exit_code == 0
 
 
+@pytest.mark.skipif(
+    not _has_formatter("behave_trace"),
+    reason="behave-trace not installed",
+)
 def test_run_trace() -> None:
     """--trace enables behave-trace formatter."""
     result = runner.invoke(app, ["run", "--trace", FIXTURE])

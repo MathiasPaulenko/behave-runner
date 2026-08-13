@@ -25,4 +25,4 @@ def test_version() -> None:
 def test_no_args_shows_help() -> None:
     result = runner.invoke(app, [])
     assert result.exit_code in (0, 2)
-    assert "Usage:" in result.stdout
+    assert "Usage:" in result.output
