@@ -2,14 +2,9 @@
 
 from __future__ import annotations
 
-import subprocess  # nosec B404
-
 import typer
-from rich.console import Console
 
-from behave_runner.core.deps import check_optional
-
-console = Console()
+from behave_runner.core.deps import check_optional, run_external
 
 
 def doctor_command(
@@ -21,15 +16,4 @@ def doctor_command(
         raise typer.Exit(2)
 
     all_args = (args or []) + ctx.args
-    cmd = ["behave-doctor", *all_args]
-    try:
-        result = subprocess.run(cmd, check=False)  # noqa: S603  # nosec B603
-        raise typer.Exit(result.returncode)
-    except FileNotFoundError:
-        console.print(
-            "[red]Error: behave-doctor not found. Install with: pip install behave-doctor[/red]"
-        )
-        raise typer.Exit(2) from None
-    except OSError as e:
-        console.print(f"[red]Error running behave-doctor: {e}[/red]")
-        raise typer.Exit(2) from None
+    raise typer.Exit(run_external(["behave-doctor", *all_args], "behave-doctor", "behave-doctor"))

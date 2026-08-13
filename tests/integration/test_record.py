@@ -150,13 +150,15 @@ def test_record_gen_success(tmp_path: Path) -> None:
     """Test full flow: wavexis succeeds, behave-gen succeeds."""
     with (
         patch("behave_runner.core.deps.is_installed", side_effect=[True, True]),
-        patch("behave_runner.commands.record.subprocess.run") as mock_run,
+        patch("behave_runner.commands.record.subprocess.run") as mock_wavexis,
+        patch("behave_runner.commands.record.run_external", return_value=0) as mock_gen,
     ):
-        mock_run.return_value.returncode = 0
+        mock_wavexis.return_value.returncode = 0
         result = runner.invoke(app, ["record"])
     assert result.exit_code == 0
-    assert mock_run.call_count == 2
-    gen_cmd = mock_run.call_args_list[1][0][0]
+    assert mock_wavexis.call_count == 1
+    assert mock_gen.call_count == 1
+    gen_cmd = mock_gen.call_args[0][0]
     assert "behave-gen" in gen_cmd
     assert "add" in gen_cmd
     assert "steps" in gen_cmd
@@ -165,25 +167,18 @@ def test_record_gen_success(tmp_path: Path) -> None:
 
 def test_record_gen_file_not_found() -> None:
     """Test behave-gen FileNotFoundError after successful recording."""
-    call_count = 0
 
-    def side_effect(*args, **kwargs):
-        nonlocal call_count
-        call_count += 1
-        if call_count == 1:
+    class R:
+        returncode = 0
 
-            class R:
-                returncode = 0
-
+    def side_effect(cmd, *args, **kwargs):
+        if "wavexis" in str(cmd):
             return R()
         raise FileNotFoundError
 
     with (
         patch("behave_runner.core.deps.is_installed", side_effect=[True, True]),
-        patch(
-            "behave_runner.commands.record.subprocess.run",
-            side_effect=side_effect,
-        ),
+        patch("subprocess.run", side_effect=side_effect),
     ):
         result = runner.invoke(app, ["record"])
     assert result.exit_code == 2
@@ -192,25 +187,18 @@ def test_record_gen_file_not_found() -> None:
 
 def test_record_gen_os_error() -> None:
     """Test behave-gen OSError after successful recording."""
-    call_count = 0
 
-    def side_effect(*args, **kwargs):
-        nonlocal call_count
-        call_count += 1
-        if call_count == 1:
+    class R:
+        returncode = 0
 
-            class R:
-                returncode = 0
-
+    def side_effect(cmd, *args, **kwargs):
+        if "wavexis" in str(cmd):
             return R()
         raise OSError("permission denied")
 
     with (
         patch("behave_runner.core.deps.is_installed", side_effect=[True, True]),
-        patch(
-            "behave_runner.commands.record.subprocess.run",
-            side_effect=side_effect,
-        ),
+        patch("subprocess.run", side_effect=side_effect),
     ):
         result = runner.invoke(app, ["record"])
     assert result.exit_code == 2
@@ -219,28 +207,19 @@ def test_record_gen_os_error() -> None:
 
 def test_record_gen_propagates_exit_code() -> None:
     """Test behave-gen non-zero exit code is propagated."""
-    call_count = 0
 
-    def side_effect(*args, **kwargs):
-        nonlocal call_count
-        call_count += 1
-        if call_count == 1:
-
-            class R:
-                returncode = 0
-
-            return R()
-
-        class R2:
-            returncode = 3
-
-        return R2()
+    class R:
+        returncode = 0
 
     with (
         patch("behave_runner.core.deps.is_installed", side_effect=[True, True]),
         patch(
             "behave_runner.commands.record.subprocess.run",
-            side_effect=side_effect,
+            return_value=R(),
+        ),
+        patch(
+            "behave_runner.commands.record.run_external",
+            return_value=3,
         ),
     ):
         result = runner.invoke(app, ["record"])

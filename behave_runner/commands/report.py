@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Literal
 
 import typer
 from rich.console import Console
@@ -18,8 +17,6 @@ report_app = typer.Typer(
     help="Generate and show reports.",
     no_args_is_help=True,
 )
-
-FormatType = Literal["console", "html", "md", "json", "sheets", "file"]
 
 
 @report_app.command(name="generate")
@@ -66,7 +63,7 @@ def report_command(
             "html": "report.html",
             "md": "report.md",
             "sheets": "report.xlsx",
-            "file": "report.txt",
+            "file": "report.docx",
         }
         outfile = str(output / extensions.get(fmt, "report.txt"))
 

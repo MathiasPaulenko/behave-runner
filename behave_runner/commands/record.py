@@ -8,7 +8,7 @@ from pathlib import Path
 import typer
 from rich.console import Console
 
-from behave_runner.core.deps import check_optional
+from behave_runner.core.deps import check_optional, run_external
 
 console = Console()
 
@@ -81,15 +81,4 @@ def record_command(
         "--from-recording",
         str(recording_path),
     ]
-    try:
-        gen_result = subprocess.run(gen_cmd, check=False)  # noqa: S603  # nosec B603
-    except FileNotFoundError:
-        console.print(
-            "[red]Error: behave-gen not found. Install with: pip install behave-gen[/red]"
-        )
-        raise typer.Exit(2) from None
-    except OSError as e:
-        console.print(f"[red]Error running behave-gen: {e}[/red]")
-        raise typer.Exit(2) from None
-
-    raise typer.Exit(gen_result.returncode)
+    raise typer.Exit(run_external(gen_cmd, "behave-gen", "behave-gen"))

@@ -2,14 +2,9 @@
 
 from __future__ import annotations
 
-import subprocess  # nosec B404
-
 import typer
-from rich.console import Console
 
-from behave_runner.core.deps import check_optional
-
-console = Console()
+from behave_runner.core.deps import check_optional, run_external
 
 
 def init_command(
@@ -24,15 +19,4 @@ def init_command(
     cmd = ["behave-gen", "init", name]
     cmd.extend(args or [])
     cmd.extend(ctx.args)
-
-    try:
-        result = subprocess.run(cmd, check=False)  # noqa: S603  # nosec B603
-        raise typer.Exit(result.returncode)
-    except FileNotFoundError:
-        console.print(
-            "[red]Error: behave-gen not found. Install with: pip install behave-gen[/red]"
-        )
-        raise typer.Exit(2) from None
-    except OSError as e:
-        console.print(f"[red]Error running behave-gen: {e}[/red]")
-        raise typer.Exit(2) from None
+    raise typer.Exit(run_external(cmd, "behave-gen", "behave-gen"))

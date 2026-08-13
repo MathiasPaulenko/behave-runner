@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
+import importlib
 import os
+import re
 import subprocess  # nosec B404
 import sys
+import warnings
 from dataclasses import dataclass, field
 
 from rich.console import Console
 
-from behave_runner.core.deps import check_optional, is_installed
+from behave_runner.core.deps import is_installed
 
 console = Console()
 
@@ -26,15 +29,19 @@ def _is_package_functional(package: str) -> bool:
     mod = sys.modules.get(package)
     if mod is None:
         try:
-            import importlib
-
             mod = importlib.import_module(package)
         except ImportError:
             return False
     paths = list(getattr(mod, "__path__", []))
     if not paths:
         return False
-    return any(os.path.isdir(p) and any(f.endswith(".py") for f in os.listdir(p)) for p in paths)
+    for p in paths:
+        try:
+            if os.path.isdir(p) and any(f.endswith(".py") for f in os.listdir(p)):
+                return True
+        except OSError:
+            continue
+    return False
 
 
 # Map report format names to their behave formatter scoped names (module:Class).
@@ -57,16 +64,6 @@ _REPORT_PACKAGES: dict[str, str] = {
     "html": "behave_modern_html_report",
     "sheets": "behave_modern_sheets_report",
     "file": "behave_modern_file_report",
-}
-
-# Map report format names to their behave-runner extra name.
-_REPORT_EXTRAS: dict[str, str] = {
-    "console": "report-console",
-    "json": "report-json",
-    "md": "report-md",
-    "html": "report-html",
-    "sheets": "report-sheets",
-    "file": "report-file",
 }
 
 
@@ -152,6 +149,12 @@ class RunConfig:
             raise ValueError("RunConfig.fmt cannot be an empty string")
         if self.shard == "":
             raise ValueError("RunConfig.shard cannot be an empty string")
+        if self.parallel_scheme == "":
+            raise ValueError("RunConfig.parallel_scheme cannot be an empty string")
+        if self.parallel_balance == "":
+            raise ValueError("RunConfig.parallel_balance cannot be an empty string")
+        if self.parallel_timing_file == "":
+            raise ValueError("RunConfig.parallel_timing_file cannot be an empty string")
 
 
 def build_behave_command(config: RunConfig) -> list[str]:
@@ -174,7 +177,7 @@ def build_behave_command(config: RunConfig) -> list[str]:
         cmd.append("--stop")
     if config.max_failures is not None and config.max_failures > 0:
         cmd.extend(["--stop"])
-    if config.timeout is not None and config.timeout > 0:
+    if config.timeout is not None:
         cmd.extend(["--timeout", str(config.timeout)])
     for name in config.name:
         cmd.extend(["--name", name])
@@ -197,8 +200,6 @@ def build_behave_command(config: RunConfig) -> list[str]:
             if config.parallel_timing_file is not None:
                 cmd.extend(["--parallel-timing-file", config.parallel_timing_file])
         else:
-            import warnings
-
             warnings.warn(
                 f"--parallel requires behave-pool to be installed; "
                 f"ignoring --parallel={config.parallel}.",
@@ -235,6 +236,22 @@ def build_behave_command(config: RunConfig) -> list[str]:
         cmd.extend(["--format", "behave_trace:TraceFormatter"])
 
     return cmd
+
+
+_SHARD_RE = re.compile(r"^(\d+)/(\d+)$")
+
+
+def validate_shard(shard: str) -> None:
+    """Validate a shard string in the format 'i/n' (e.g. '1/3').
+
+    Raises ValueError if the format is invalid or the shard index is out of range.
+    """
+    match = _SHARD_RE.match(shard)
+    if not match:
+        raise ValueError(f"Invalid shard format: '{shard}'. Expected i/n (e.g. 1/3).")
+    i, n = int(match.group(1)), int(match.group(2))
+    if i < 1 or n < 1 or i > n:
+        raise ValueError(f"Invalid shard: {shard}. i must be 1..n.")
 
 
 def _resolve_formatter(fmt: str) -> str | None:
@@ -296,18 +313,6 @@ def _run_behave_subprocess(cmd: list[str], env: dict[str, str]) -> int:
         return 2
 
 
-def _check_report_dependency(fmt: str) -> bool:
-    """Check if the report formatter package is installed.
-
-    Prints a warning and returns False if the package is not available.
-    """
-    package = _REPORT_PACKAGES.get(fmt)
-    extra = _REPORT_EXTRAS.get(fmt)
-    if package is None:
-        return True  # Not a report format, no check needed
-    return check_optional(extra or "", package, f"format {fmt}")
-
-
 def run(config: RunConfig) -> int:
     """Execute behave with the given config. Return exit code.
 
@@ -315,12 +320,6 @@ def run(config: RunConfig) -> int:
     priority) are passed to behave via command-line flags and environment
     variables. Behave handles them natively or via installed packages.
     """
-    # Report formatter dependency is checked inside build_behave_command
-    # via is_installed() — degrades gracefully to behave built-in formats.
-
-    # Trace dependency is checked inside build_behave_command
-    # via is_installed() — degrades gracefully when behave-trace is not installed.
-
     behave_vars = _behave_env_vars(config)
     saved = {k: os.environ.get(k) for k in behave_vars}
     os.environ.update(behave_vars)

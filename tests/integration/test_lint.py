@@ -25,7 +25,7 @@ def test_lint_no_args() -> None:
     """Test lint with no args calls behave-lint with no extra args."""
     with (
         patch("behave_runner.core.deps.is_installed", return_value=True),
-        patch("behave_runner.commands.lint.subprocess.run") as mock_run,
+        patch("behave_runner.core.deps.subprocess.run") as mock_run,
     ):
         mock_run.return_value.returncode = 0
         runner.invoke(app, ["lint"])
@@ -37,7 +37,7 @@ def test_lint_with_path() -> None:
     """Test lint passes path argument to behave-lint."""
     with (
         patch("behave_runner.core.deps.is_installed", return_value=True),
-        patch("behave_runner.commands.lint.subprocess.run") as mock_run,
+        patch("behave_runner.core.deps.subprocess.run") as mock_run,
     ):
         mock_run.return_value.returncode = 0
         runner.invoke(app, ["lint", "features/login.feature"])
@@ -50,7 +50,7 @@ def test_lint_passthrough_flags() -> None:
     """Test that unknown -- flags pass through to behave-lint."""
     with (
         patch("behave_runner.core.deps.is_installed", return_value=True),
-        patch("behave_runner.commands.lint.subprocess.run") as mock_run,
+        patch("behave_runner.core.deps.subprocess.run") as mock_run,
     ):
         mock_run.return_value.returncode = 0
         runner.invoke(
@@ -69,7 +69,7 @@ def test_lint_passthrough_quiet() -> None:
     """Test --quiet flag passes through to behave-lint."""
     with (
         patch("behave_runner.core.deps.is_installed", return_value=True),
-        patch("behave_runner.commands.lint.subprocess.run") as mock_run,
+        patch("behave_runner.core.deps.subprocess.run") as mock_run,
     ):
         mock_run.return_value.returncode = 0
         runner.invoke(app, ["lint", "features/", "--quiet"])
@@ -89,7 +89,7 @@ def test_lint_propagates_exit_code() -> None:
     """Test lint propagates behave-lint exit code."""
     with (
         patch("behave_runner.core.deps.is_installed", return_value=True),
-        patch("behave_runner.commands.lint.subprocess.run") as mock_run,
+        patch("behave_runner.core.deps.subprocess.run") as mock_run,
     ):
         mock_run.return_value.returncode = 1
         result = runner.invoke(app, ["lint", "tests/fixtures/minimal/features"])
@@ -101,7 +101,7 @@ def test_lint_file_not_found() -> None:
     with (
         patch("behave_runner.core.deps.is_installed", return_value=True),
         patch(
-            "behave_runner.commands.lint.subprocess.run",
+            "behave_runner.core.deps.subprocess.run",
             side_effect=FileNotFoundError,
         ),
     ):
@@ -115,7 +115,7 @@ def test_lint_os_error() -> None:
     with (
         patch("behave_runner.core.deps.is_installed", return_value=True),
         patch(
-            "behave_runner.commands.lint.subprocess.run",
+            "behave_runner.core.deps.subprocess.run",
             side_effect=OSError("permission denied"),
         ),
     ):

@@ -28,7 +28,7 @@ def test_init_cmd_construction() -> None:
     """Test init builds correct behave-gen command with --name as positional."""
     with (
         patch("behave_runner.core.deps.is_installed", return_value=True),
-        patch("behave_runner.commands.init.subprocess.run") as mock_run,
+        patch("behave_runner.core.deps.subprocess.run") as mock_run,
     ):
         mock_run.return_value.returncode = 0
         runner.invoke(app, ["init", "--name", "myproject"])
@@ -40,7 +40,7 @@ def test_init_passes_extra_args() -> None:
     """Test init passes extra positional args to behave-gen."""
     with (
         patch("behave_runner.core.deps.is_installed", return_value=True),
-        patch("behave_runner.commands.init.subprocess.run") as mock_run,
+        patch("behave_runner.core.deps.subprocess.run") as mock_run,
     ):
         mock_run.return_value.returncode = 0
         runner.invoke(app, ["init", "--name", "myproject", "--template", "minimal"])
@@ -71,7 +71,7 @@ def test_init_propagates_exit_code() -> None:
     """Test init propagates behave-gen exit code."""
     with (
         patch("behave_runner.core.deps.is_installed", return_value=True),
-        patch("behave_runner.commands.init.subprocess.run") as mock_run,
+        patch("behave_runner.core.deps.subprocess.run") as mock_run,
     ):
         mock_run.return_value.returncode = 1
         result = runner.invoke(app, ["init", "--name", "myproject"])
@@ -83,7 +83,7 @@ def test_init_file_not_found() -> None:
     with (
         patch("behave_runner.core.deps.is_installed", return_value=True),
         patch(
-            "behave_runner.commands.init.subprocess.run",
+            "behave_runner.core.deps.subprocess.run",
             side_effect=FileNotFoundError,
         ),
     ):
@@ -97,7 +97,7 @@ def test_init_os_error() -> None:
     with (
         patch("behave_runner.core.deps.is_installed", return_value=True),
         patch(
-            "behave_runner.commands.init.subprocess.run",
+            "behave_runner.core.deps.subprocess.run",
             side_effect=OSError("permission denied"),
         ),
     ):

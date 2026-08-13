@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-import subprocess  # nosec B404
-
 import typer
 from rich.console import Console
 
-from behave_runner.core.deps import check_optional
+from behave_runner.core.deps import check_optional, run_external
 
 console = Console()
 
@@ -22,18 +20,7 @@ def _run_behave_gen(cmd: list[str]) -> None:
     """Delegate to behave-gen via subprocess."""
     if not check_optional("gen", "behave_gen", "generate"):
         raise typer.Exit(2)
-
-    try:
-        result = subprocess.run(cmd, check=False)  # noqa: S603  # nosec B603
-        raise typer.Exit(result.returncode)
-    except FileNotFoundError:
-        console.print(
-            "[red]Error: behave-gen not found. Install with: pip install behave-gen[/red]"
-        )
-        raise typer.Exit(2) from None
-    except OSError as e:
-        console.print(f"[red]Error running behave-gen: {e}[/red]")
-        raise typer.Exit(2) from None
+    raise typer.Exit(run_external(cmd, "behave-gen", "behave-gen"))
 
 
 @generate_app.command(name="step")

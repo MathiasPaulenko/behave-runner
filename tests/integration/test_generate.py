@@ -37,7 +37,7 @@ def test_generate_feature_with_tags(tmp_path: Path, monkeypatch) -> None:
     if not importlib.util.find_spec("behave_gen"):
         pytest.skip("behave-gen not installed")
     monkeypatch.chdir(tmp_path)
-    with patch("behave_runner.commands.generate.subprocess.run") as mock_run:
+    with patch("behave_runner.core.deps.subprocess.run") as mock_run:
         mock_run.return_value.returncode = 0
         runner.invoke(app, ["generate", "feature", "Login", "--tags", "@smoke,@auth"])
     cmd = mock_run.call_args[0][0]
@@ -53,7 +53,7 @@ def test_generate_step_cmd_construction() -> None:
     """Test generate step builds correct behave-gen command."""
     with (
         patch("behave_runner.core.deps.is_installed", return_value=True),
-        patch("behave_runner.commands.generate.subprocess.run") as mock_run,
+        patch("behave_runner.core.deps.subprocess.run") as mock_run,
     ):
         mock_run.return_value.returncode = 0
         runner.invoke(app, ["generate", "step", "--lib", "auth"])
@@ -65,7 +65,7 @@ def test_generate_feature_cmd_construction() -> None:
     """Test generate feature builds correct behave-gen command."""
     with (
         patch("behave_runner.core.deps.is_installed", return_value=True),
-        patch("behave_runner.commands.generate.subprocess.run") as mock_run,
+        patch("behave_runner.core.deps.subprocess.run") as mock_run,
     ):
         mock_run.return_value.returncode = 0
         runner.invoke(app, ["generate", "feature", "Logout"])
@@ -77,7 +77,7 @@ def test_generate_feature_no_tags_no_flag() -> None:
     """Test generate feature without --tags doesn't add --tags flag."""
     with (
         patch("behave_runner.core.deps.is_installed", return_value=True),
-        patch("behave_runner.commands.generate.subprocess.run") as mock_run,
+        patch("behave_runner.core.deps.subprocess.run") as mock_run,
     ):
         mock_run.return_value.returncode = 0
         runner.invoke(app, ["generate", "feature", "Login"])
@@ -119,7 +119,7 @@ def test_generate_propagates_exit_code() -> None:
     """Test generate propagates behave-gen exit code."""
     with (
         patch("behave_runner.core.deps.is_installed", return_value=True),
-        patch("behave_runner.commands.generate.subprocess.run") as mock_run,
+        patch("behave_runner.core.deps.subprocess.run") as mock_run,
     ):
         mock_run.return_value.returncode = 1
         result = runner.invoke(app, ["generate", "step", "--lib", "http"])
@@ -131,7 +131,7 @@ def test_generate_file_not_found() -> None:
     with (
         patch("behave_runner.core.deps.is_installed", return_value=True),
         patch(
-            "behave_runner.commands.generate.subprocess.run",
+            "behave_runner.core.deps.subprocess.run",
             side_effect=FileNotFoundError,
         ),
     ):
@@ -145,7 +145,7 @@ def test_generate_os_error() -> None:
     with (
         patch("behave_runner.core.deps.is_installed", return_value=True),
         patch(
-            "behave_runner.commands.generate.subprocess.run",
+            "behave_runner.core.deps.subprocess.run",
             side_effect=OSError("permission denied"),
         ),
     ):

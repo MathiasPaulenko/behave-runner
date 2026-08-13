@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import subprocess  # nosec B404
 
 import typer
@@ -59,7 +60,8 @@ def impact_command(
             console.print(f"[cyan]Running {len(names)} affected scenarios...[/cyan]")
             worst_exit = 0
             for name in names:
-                config = RunConfig(features=[path], name=[name])
+                escaped_name = re.escape(name)
+                config = RunConfig(features=[path], name=[escaped_name])
                 exit_code = run(config)
                 if exit_code != 0:
                     worst_exit = exit_code

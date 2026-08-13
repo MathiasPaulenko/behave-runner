@@ -75,7 +75,7 @@ def load_config(project_path: Path | None = None) -> dict[str, Any]:
             return config
     behave_ini = root / "behave.ini"
     if behave_ini.exists():
-        parser = configparser.ConfigParser()
+        parser = configparser.ConfigParser(interpolation=None)
         try:
             parser.read(behave_ini)
         except (configparser.Error, UnicodeDecodeError) as e:
@@ -133,7 +133,12 @@ def load_profile(name: str, project_path: Path | None = None) -> dict[str, Any]:
 
 
 def _normalize_profile(profile: dict[str, Any]) -> dict[str, Any]:
-    """Normalize profile values from ini config (strings) to proper types."""
+    """Normalize profile values to proper Python types.
+
+    Converts list, int, and bool values from their raw config representation
+    (which may be strings from INI files or native types from TOML) into
+    the correct Python types expected by RunConfig.
+    """
     normalized = dict(profile)
     for key, value in profile.items():
         if key in _LIST_KEYS:
@@ -148,7 +153,7 @@ def _normalize_profile(profile: dict[str, Any]) -> dict[str, Any]:
 def _normalize_list(value: Any) -> list[str]:
     """Normalize a list-like value to a list of strings."""
     if isinstance(value, list):
-        return [str(item).strip() for item in value]
+        return [str(item).strip() for item in value if str(item).strip()]
     if isinstance(value, str):
         return [item.strip() for item in value.split(",") if item.strip()]
     raise ConfigError(f"Expected a list or comma-separated string, got {value!r}")
@@ -160,6 +165,10 @@ def _normalize_int(key: str, value: Any) -> int:
         raise _BadIntegerError(f"Config key '{key}' must be an integer, not a boolean")
     if isinstance(value, int):
         return value
+    if isinstance(value, float):
+        if value.is_integer():
+            return int(value)
+        raise _BadIntegerError(f"Config key '{key}' must be an integer, got {value!r}")
     if isinstance(value, str):
         try:
             return int(value.strip())

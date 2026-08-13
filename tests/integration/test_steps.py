@@ -40,7 +40,8 @@ def test_steps_help() -> None:
 def test_steps_no_args_shows_help() -> None:
     """Test steps with no args shows help (no_args_is_help=True)."""
     result = runner.invoke(app, ["steps"])
-    assert result.exit_code != 0
+    assert result.exit_code == 0
+    assert "steps" in result.stdout.lower()
 
 
 # --- Subcommand help ---

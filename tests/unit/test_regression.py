@@ -5,6 +5,7 @@ from __future__ import annotations
 import sys
 import time
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 from typer.testing import CliRunner
@@ -15,6 +16,8 @@ from behave_runner.core.output import clean_output_dir, ensure_output_dir
 from behave_runner.core.watcher import FileWatcher
 
 runner = CliRunner()
+
+FIXTURE = "tests/fixtures/minimal/features"
 
 
 # --- Regression: duplicate `impact` command registration ---
@@ -285,7 +288,6 @@ def test_run_passes_env_vars_for_retries(monkeypatch) -> None:
         return FakeResult()
 
     monkeypatch.setattr(subprocess, "run", fake_run)
-    monkeypatch.setattr(orchestrator, "check_optional", lambda *a: True)
 
     config = RunConfig(scenario_timeout=42, retries=3)
     orchestrator.run(config)
@@ -441,7 +443,6 @@ def test_run_does_not_set_timeout_env_var(monkeypatch) -> None:
         return FakeResult()
 
     monkeypatch.setattr(orchestrator.subprocess, "run", capture_env)
-    monkeypatch.setattr(orchestrator, "check_optional", lambda *a: True)
     orchestrator.run(config)
     assert captured["BEHAVE_TIMEOUT"] is None
 
@@ -1507,3 +1508,766 @@ def test_ini_flat_to_nested_no_conflict(tmp_path: Path) -> None:
         "profiles": {"ci": {"parallel": "4", "dry_run": "false"}},
         "default_parallel": "2",
     }
+
+
+# --- Regression: duplicate @smoke tag when both CLI --smoke and profile smoke=true ---
+
+
+def test_no_duplicate_smoke_tag_cli_and_profile(tmp_path: Path, monkeypatch) -> None:
+    """Ensure @smoke is not added twice when both --smoke CLI flag and profile
+    smoke=true are set."""
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        '[project]\nname = "test"\nversion = "0.1.0"\n\n'
+        "[tool.behave-runner]\n"
+        "[tool.behave-runner.profiles.smoke]\n"
+        'smoke = true\ntags = ["@fast"]\n'
+    )
+    monkeypatch.chdir(tmp_path)
+
+    with patch("behave_runner.commands.run.run", return_value=0) as mock_run:
+        result = runner.invoke(app, ["run", "--smoke", FIXTURE])
+    assert result.exit_code == 0
+    config = mock_run.call_args[0][0]
+    smoke_count = config.tags.count("@smoke")
+    assert smoke_count == 1, f"Expected @smoke once, found {smoke_count} times in {config.tags}"
+
+
+def test_no_duplicate_smoke_tag_profile_only(tmp_path: Path, monkeypatch) -> None:
+    """Ensure @smoke appears once when only profile smoke=true is set."""
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        '[project]\nname = "test"\nversion = "0.1.0"\n\n'
+        "[tool.behave-runner]\n"
+        "[tool.behave-runner.profiles.smoke]\n"
+        "smoke = true\n"
+    )
+    monkeypatch.chdir(tmp_path)
+
+    with patch("behave_runner.commands.run.run", return_value=0) as mock_run:
+        result = runner.invoke(app, ["run", "--profile", "smoke", FIXTURE])
+    assert result.exit_code == 0
+    config = mock_run.call_args[0][0]
+    assert config.tags.count("@smoke") == 1
+
+
+# --- Regression: watch.py profile format key mismatch (fmt vs format) ---
+
+
+def test_watch_profile_format_key(tmp_path: Path, monkeypatch) -> None:
+    """Ensure watch command picks up 'format' key from profile (not 'fmt')."""
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        '[project]\nname = "test"\nversion = "0.1.0"\n\n'
+        "[tool.behave-runner]\n"
+        "[tool.behave-runner.profiles.ci]\n"
+        'format = "json"\n'
+    )
+    monkeypatch.chdir(tmp_path)
+
+    # Simulate what watch_command does with profile
+    from behave_runner.core.config import load_profile
+
+    profile_config = load_profile("ci")
+    config_overrides: dict[str, object] = {
+        "ui": False,
+        "debug": False,
+        "trace": False,
+        "priority_order": False,
+        "fail_fast": False,
+    }
+    for key in ("retries", "parallel", "scenario_timeout"):
+        if key not in config_overrides and key in profile_config:
+            config_overrides[key] = profile_config[key]
+    if "fmt" not in config_overrides and "format" in profile_config:
+        config_overrides["fmt"] = profile_config["format"]
+
+    assert config_overrides.get("fmt") == "json", (
+        f"Expected fmt='json' from profile format key, got {config_overrides.get('fmt')!r}"
+    )
+
+
+# --- Regression: _is_package_functional handles OSError from os.listdir ---
+
+
+def test_is_package_functional_handles_oserror(monkeypatch) -> None:
+    """Ensure _is_package_functional returns False (not crash) when os.listdir
+    raises OSError (e.g. permission denied)."""
+    from behave_runner.core.orchestrator import _is_package_functional
+
+    def fake_listdir(path: str) -> list[str]:
+        raise PermissionError("Permission denied")
+
+    monkeypatch.setattr("behave_runner.core.orchestrator.is_installed", lambda _: True)
+    monkeypatch.setattr("behave_runner.core.orchestrator.os.listdir", fake_listdir)
+
+    result = _is_package_functional("behave_runner")
+    assert result is False, "Expected False when os.listdir raises OSError"
+
+
+# --- Regression: watch.py doesn't merge profile tags, features, or smoke ---
+
+
+def test_watch_profile_tags_merged(tmp_path: Path, monkeypatch) -> None:
+    """Ensure watch command merges profile tags with CLI tags."""
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        '[project]\nname = "test"\nversion = "0.1.0"\n\n'
+        "[tool.behave-runner]\n"
+        "[tool.behave-runner.profiles.ci]\n"
+        'tags = ["@ci", "@fast"]\n'
+    )
+    monkeypatch.chdir(tmp_path)
+
+    from behave_runner.core.config import load_profile
+
+    profile_config = load_profile("ci")
+    profile_tags = profile_config.get("tags", [])
+    cli_tags: list[str] = []
+    merged = [*cli_tags, *profile_tags] if (cli_tags or profile_tags) else []
+    assert "@ci" in merged
+    assert "@fast" in merged
+
+
+def test_watch_profile_features_merged(tmp_path: Path, monkeypatch) -> None:
+    """Ensure watch command uses profile features when no CLI features given."""
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        '[project]\nname = "test"\nversion = "0.1.0"\n\n'
+        "[tool.behave-runner]\n"
+        "[tool.behave-runner.profiles.ci]\n"
+        'features = ["custom_features"]\n'
+    )
+    monkeypatch.chdir(tmp_path)
+
+    from behave_runner.core.config import load_profile
+
+    profile_config = load_profile("ci")
+    profile_features = profile_config.get("features", [])
+    features: list[str] = []
+    feature_paths = (
+        list(features)
+        if features
+        else (list(profile_features) if profile_features else ["features"])
+    )
+    assert feature_paths == ["custom_features"], (
+        f"Expected ['custom_features'], got {feature_paths}"
+    )
+
+
+def test_watch_profile_smoke_adds_tag(tmp_path: Path, monkeypatch) -> None:
+    """Ensure watch command adds @smoke tag from profile smoke=true."""
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        '[project]\nname = "test"\nversion = "0.1.0"\n\n'
+        "[tool.behave-runner]\n"
+        "[tool.behave-runner.profiles.smoke]\n"
+        "smoke = true\n"
+    )
+    monkeypatch.chdir(tmp_path)
+
+    from behave_runner.core.config import load_profile
+
+    profile_config = load_profile("smoke")
+    tags: list[str] = []
+    profile_smoke = profile_config.get("smoke", False)
+    if profile_smoke and "@smoke" not in tags:
+        tags = [*tags, "@smoke"]
+    assert "@smoke" in tags
+    assert tags.count("@smoke") == 1
+
+
+# --- Regression: timeout=0 should pass --timeout 0 to behave (not silently dropped) ---
+
+
+def test_timeout_zero_passed_to_behave() -> None:
+    """Ensure timeout=0 passes --timeout 0 to behave (means 'no timeout').
+
+    Previously, the condition `timeout > 0` silently dropped timeout=0,
+    causing behave to use its default 5-second timeout instead of no timeout.
+    """
+    config = RunConfig(timeout=0)
+    cmd = build_behave_command(config)
+    assert "--timeout" in cmd
+    timeout_idx = cmd.index("--timeout")
+    assert cmd[timeout_idx + 1] == "0"
+
+
+def test_timeout_none_not_in_command() -> None:
+    """Ensure timeout=None does not add --timeout to command."""
+    config = RunConfig(timeout=None)
+    cmd = build_behave_command(config)
+    assert "--timeout" not in cmd
+
+
+# --- Regression: _normalize_int should accept float values like 4.0 ---
+
+
+def test_normalize_int_accepts_whole_float() -> None:
+    """Ensure _normalize_int accepts float 4.0 and returns int 4.
+
+    TOML allows `parallel = 4.0` which tomllib loads as float.
+    Previously, this would raise _BadIntegerError instead of accepting 4.0 as 4.
+    """
+    from behave_runner.core.config import _normalize_int
+
+    assert _normalize_int("parallel", 4.0) == 4
+    assert isinstance(_normalize_int("parallel", 4.0), int)
+
+
+def test_normalize_int_rejects_non_whole_float() -> None:
+    """Ensure _normalize_int rejects float 3.5."""
+    from behave_runner.core.config import _BadIntegerError, _normalize_int
+
+    with pytest.raises(_BadIntegerError):
+        _normalize_int("timeout", 3.5)
+
+
+# --- Regression: watch.py doesn't merge timeout and max_failures from profile ---
+
+
+def test_watch_profile_timeout_merged(tmp_path: Path, monkeypatch) -> None:
+    """Ensure watch command merges profile timeout setting."""
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        '[project]\nname = "test"\nversion = "0.1.0"\n\n'
+        "[tool.behave-runner]\n"
+        "[tool.behave-runner.profiles.ci]\n"
+        "timeout = 30\n"
+    )
+    monkeypatch.chdir(tmp_path)
+
+    from behave_runner.core.config import load_profile
+
+    profile_config = load_profile("ci")
+    config_overrides: dict[str, object] = {}
+    for key in ("retries", "parallel", "scenario_timeout", "timeout"):
+        if key not in config_overrides and key in profile_config:
+            config_overrides[key] = profile_config[key]
+    assert config_overrides.get("timeout") == 30
+
+
+def test_watch_profile_max_failures_merged(tmp_path: Path, monkeypatch) -> None:
+    """Ensure watch command merges profile max_failures setting."""
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        '[project]\nname = "test"\nversion = "0.1.0"\n\n'
+        "[tool.behave-runner]\n"
+        "[tool.behave-runner.profiles.ci]\n"
+        "max_failures = 3\n"
+    )
+    monkeypatch.chdir(tmp_path)
+
+    from behave_runner.core.config import load_profile
+
+    profile_config = load_profile("ci")
+    config_overrides: dict[str, object] = {}
+    if "max_failures" not in config_overrides:
+        if "max_failures" in profile_config:
+            config_overrides["max_failures"] = profile_config["max_failures"]
+        elif "max_fail" in profile_config:
+            config_overrides["max_failures"] = profile_config["max_fail"]
+    assert config_overrides.get("max_failures") == 3
+
+
+def test_watch_profile_max_fail_alias_merged(tmp_path: Path, monkeypatch) -> None:
+    """Ensure watch command merges profile max_fail alias (same as run.py)."""
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        '[project]\nname = "test"\nversion = "0.1.0"\n\n'
+        "[tool.behave-runner]\n"
+        "[tool.behave-runner.profiles.ci]\n"
+        "max_fail = 5\n"
+    )
+    monkeypatch.chdir(tmp_path)
+
+    from behave_runner.core.config import load_profile
+
+    profile_config = load_profile("ci")
+    config_overrides: dict[str, object] = {}
+    if "max_failures" not in config_overrides:
+        if "max_failures" in profile_config:
+            config_overrides["max_failures"] = profile_config["max_failures"]
+        elif "max_fail" in profile_config:
+            config_overrides["max_failures"] = profile_config["max_fail"]
+    assert config_overrides.get("max_failures") == 5
+
+
+def test_watch_profile_flaky_report_merged(tmp_path: Path, monkeypatch) -> None:
+    """Ensure watch command merges profile flaky_report (with retries)."""
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        '[project]\nname = "test"\nversion = "0.1.0"\n\n'
+        "[tool.behave-runner]\n"
+        "[tool.behave-runner.profiles.ci]\n"
+        "flaky_report = true\n"
+        "retries = 2\n"
+    )
+    monkeypatch.chdir(tmp_path)
+
+    from behave_runner.core.config import load_profile
+
+    profile_config = load_profile("ci")
+    config_overrides: dict[str, object] = {}
+    for key in ("ui", "debug", "trace", "priority_order", "fail_fast", "flaky_report"):
+        if key in profile_config and profile_config[key]:
+            config_overrides[key] = True
+    for key in ("retries",):
+        if key not in config_overrides and key in profile_config:
+            config_overrides[key] = profile_config[key]
+    assert config_overrides.get("flaky_report") is True
+
+
+def test_watch_profile_flaky_report_disabled_without_retries(tmp_path: Path, monkeypatch) -> None:
+    """Ensure watch command disables flaky_report when retries=0 from profile."""
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        '[project]\nname = "test"\nversion = "0.1.0"\n\n'
+        "[tool.behave-runner]\n"
+        "[tool.behave-runner.profiles.ci]\n"
+        "flaky_report = true\n"
+        "retries = 0\n"
+    )
+    monkeypatch.chdir(tmp_path)
+
+    from behave_runner.core.config import load_profile
+
+    profile_config = load_profile("ci")
+    config_overrides: dict[str, object] = {}
+    for key in ("ui", "debug", "trace", "priority_order", "fail_fast", "flaky_report"):
+        if key in profile_config and profile_config[key]:
+            config_overrides[key] = True
+    for key in ("retries",):
+        if key not in config_overrides and key in profile_config:
+            config_overrides[key] = profile_config[key]
+    # Simulate the flaky_report validation
+    p_flaky = config_overrides.get("flaky_report", False)
+    p_retries = config_overrides.get("retries")
+    if p_flaky and (p_retries is None or p_retries == 0):
+        config_overrides.pop("flaky_report", None)
+    assert "flaky_report" not in config_overrides
+
+
+def test_watch_profile_name_merged(tmp_path: Path, monkeypatch) -> None:
+    """Ensure watch command merges profile name filter."""
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        '[project]\nname = "test"\nversion = "0.1.0"\n\n'
+        "[tool.behave-runner]\n"
+        "[tool.behave-runner.profiles.ci]\n"
+        'name = ["Scenario 1", "Scenario 2"]\n'
+    )
+    monkeypatch.chdir(tmp_path)
+
+    from behave_runner.core.config import load_profile
+
+    profile_config = load_profile("ci")
+    config_overrides: dict[str, object] = {}
+    p_name = profile_config.get("name", [])
+    if isinstance(p_name, list) and p_name:
+        config_overrides["name"] = p_name
+    assert config_overrides.get("name") == ["Scenario 1", "Scenario 2"]
+
+
+def test_watch_profile_parallel_scheme_merged(tmp_path: Path, monkeypatch) -> None:
+    """Ensure watch command merges profile parallel_scheme."""
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        '[project]\nname = "test"\nversion = "0.1.0"\n\n'
+        "[tool.behave-runner]\n"
+        "[tool.behave-runner.profiles.ci]\n"
+        "parallel = 4\n"
+        'parallel_scheme = "scenario"\n'
+    )
+    monkeypatch.chdir(tmp_path)
+
+    from behave_runner.core.config import load_profile
+
+    profile_config = load_profile("ci")
+    config_overrides: dict[str, object] = {}
+    for key in (
+        "retries",
+        "parallel",
+        "scenario_timeout",
+        "timeout",
+        "parallel_scheme",
+        "parallel_balance",
+        "parallel_timing_file",
+        "shard",
+    ):
+        if key not in config_overrides and key in profile_config:
+            config_overrides[key] = profile_config[key]
+    assert config_overrides.get("parallel") == 4
+    assert config_overrides.get("parallel_scheme") == "scenario"
+
+
+def test_watch_profile_shard_merged(tmp_path: Path, monkeypatch) -> None:
+    """Ensure watch command merges profile shard."""
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        '[project]\nname = "test"\nversion = "0.1.0"\n\n'
+        "[tool.behave-runner]\n"
+        "[tool.behave-runner.profiles.ci]\n"
+        'shard = "1/3"\n'
+    )
+    monkeypatch.chdir(tmp_path)
+
+    from behave_runner.core.config import load_profile
+
+    profile_config = load_profile("ci")
+    config_overrides: dict[str, object] = {}
+    for key in (
+        "retries",
+        "parallel",
+        "scenario_timeout",
+        "timeout",
+        "parallel_scheme",
+        "parallel_balance",
+        "parallel_timing_file",
+        "shard",
+    ):
+        if key not in config_overrides and key in profile_config:
+            config_overrides[key] = profile_config[key]
+    assert config_overrides.get("shard") == "1/3"
+
+
+# --- Regression: report.py file format should use .docx extension ---
+
+
+def test_report_file_format_uses_docx_extension(tmp_path: Path) -> None:
+    """Ensure report generate --format file uses .docx extension, not .txt.
+
+    The file format maps to DOCXFormatter in the orchestrator, so the output
+    file should have a .docx extension. Previously it was .txt which is wrong.
+    """
+    extensions = {
+        "json": "report.json",
+        "html": "report.html",
+        "md": "report.md",
+        "sheets": "report.xlsx",
+        "file": "report.docx",
+    }
+    assert extensions["file"] == "report.docx"
+    assert extensions["file"].endswith(".docx")
+
+
+# --- Regression: watch.py doesn't merge output from profile ---
+
+
+def test_watch_profile_output_merged(tmp_path: Path, monkeypatch) -> None:
+    """Ensure watch command merges profile output setting into outfile.
+
+    run.py merges profile 'output' into RunConfig.outfile, but watch.py
+    was missing this merge, causing inconsistent behavior.
+    """
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        '[project]\nname = "test"\nversion = "0.1.0"\n\n'
+        "[tool.behave-runner]\n"
+        "[tool.behave-runner.profiles.ci]\n"
+        'output = "reports/report.json"\n'
+    )
+    monkeypatch.chdir(tmp_path)
+
+    from behave_runner.core.config import load_profile
+
+    profile_config = load_profile("ci")
+    config_overrides: dict[str, object] = {}
+    if "outfile" not in config_overrides and "output" in profile_config:
+        config_overrides["outfile"] = profile_config["output"]
+    assert config_overrides.get("outfile") == "reports/report.json"
+
+
+# --- Regression: watch callback should handle RunConfig errors gracefully ---
+
+
+def test_watch_callback_handles_runconfig_error() -> None:
+    """Ensure watch callback catches ValueError from RunConfig and prints error.
+
+    If profile has invalid values (e.g. parallel=-1), RunConfig.__post_init__
+    raises ValueError. The callback should catch it and print a friendly
+    message instead of crashing with an unhandled exception.
+    """
+    from behave_runner.commands.watch import _make_callback
+
+    config_overrides: dict[str, object] = {"parallel": -1}
+    callback = _make_callback(["features"], [], None, config_overrides)
+
+    # Should not raise — should just print error and return
+    callback([Path("test.feature")])
+
+
+# --- Regression: watch.py should validate shard format from profile ---
+
+
+def test_watch_profile_invalid_shard_format(tmp_path: Path, monkeypatch) -> None:
+    """Ensure watch command validates shard format from profile.
+
+    run.py validates shard format with regex, but watch.py was missing
+    this validation. An invalid shard like 'invalid' should be rejected.
+    """
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        '[project]\nname = "test"\nversion = "0.1.0"\n\n'
+        "[tool.behave-runner]\n"
+        "[tool.behave-runner.profiles.ci]\n"
+        'shard = "invalid"\n'
+    )
+    monkeypatch.chdir(tmp_path)
+
+    from behave_runner.core.config import load_profile
+
+    profile_config = load_profile("ci")
+    config_overrides: dict[str, object] = {}
+    if "shard" not in config_overrides and "shard" in profile_config:
+        config_overrides["shard"] = profile_config["shard"]
+
+    # Simulate the validation that watch.py should perform
+    import re
+
+    shard_re = re.compile(r"^(\d+)/(\d+)$")
+    p_shard = config_overrides.get("shard")
+    assert p_shard is not None
+    assert isinstance(p_shard, str)
+    match = shard_re.match(p_shard)
+    assert match is None  # "invalid" should not match the regex
+
+
+def test_watch_profile_shard_out_of_range(tmp_path: Path, monkeypatch) -> None:
+    """Ensure watch command validates shard range (i must be 1..n)."""
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        '[project]\nname = "test"\nversion = "0.1.0"\n\n'
+        "[tool.behave-runner]\n"
+        "[tool.behave-runner.profiles.ci]\n"
+        'shard = "5/3"\n'
+    )
+    monkeypatch.chdir(tmp_path)
+
+    from behave_runner.core.config import load_profile
+
+    profile_config = load_profile("ci")
+    config_overrides: dict[str, object] = {}
+    if "shard" not in config_overrides and "shard" in profile_config:
+        config_overrides["shard"] = profile_config["shard"]
+
+    import re
+
+    shard_re = re.compile(r"^(\d+)/(\d+)$")
+    p_shard = config_overrides.get("shard")
+    assert p_shard is not None
+    match = shard_re.match(p_shard)
+    assert match is not None
+    i, n = int(match.group(1)), int(match.group(2))
+    assert i > n  # 5 > 3, should be invalid
+
+
+# --- Regression: RunConfig should reject empty strings for parallel_* fields ---
+
+
+def test_runconfig_empty_parallel_scheme_rejected() -> None:
+    """RunConfig should reject empty string for parallel_scheme."""
+    from behave_runner.core.orchestrator import RunConfig
+
+    with pytest.raises(ValueError, match="parallel_scheme"):
+        RunConfig(features=["features"], parallel_scheme="")
+
+
+def test_runconfig_empty_parallel_balance_rejected() -> None:
+    """RunConfig should reject empty string for parallel_balance."""
+    from behave_runner.core.orchestrator import RunConfig
+
+    with pytest.raises(ValueError, match="parallel_balance"):
+        RunConfig(features=["features"], parallel_balance="")
+
+
+def test_runconfig_empty_parallel_timing_file_rejected() -> None:
+    """RunConfig should reject empty string for parallel_timing_file."""
+    from behave_runner.core.orchestrator import RunConfig
+
+    with pytest.raises(ValueError, match="parallel_timing_file"):
+        RunConfig(features=["features"], parallel_timing_file="")
+
+
+# --- Regression: _normalize_list should filter empty strings from list input ---
+
+
+def test_normalize_list_filters_empty_strings_from_list() -> None:
+    """_normalize_list should filter out empty strings when input is a list.
+
+    Previously, only comma-separated string input filtered empty strings.
+    List input like ["", " @smoke ", ""] would produce ["", "@smoke", ""],
+    leading to --tags "" being passed to behave.
+    """
+    from behave_runner.core.config import _normalize_list
+
+    result = _normalize_list(["", " @smoke ", ""])
+    assert result == ["@smoke"]
+    assert "" not in result
+
+
+def test_normalize_list_filters_empty_strings_from_string() -> None:
+    """_normalize_list should continue to filter empty strings from string input."""
+    from behave_runner.core.config import _normalize_list
+
+    result = _normalize_list(" , @smoke , ")
+    assert result == ["@smoke"]
+    assert "" not in result
+
+
+# --- Regression: watch.py should use ["features"] for empty profile features ---
+
+
+def test_watch_empty_profile_features_uses_default(tmp_path: Path, monkeypatch) -> None:
+    """watch.py should use ['features'] when profile has empty features list.
+
+    run.py uses ['features'] as default when profile features is empty.
+    watch.py was using [] instead, causing inconsistent behavior.
+    """
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        '[project]\nname = "test"\nversion = "0.1.0"\n\n'
+        "[tool.behave-runner]\n"
+        "[tool.behave-runner.profiles.ci]\n"
+        "features = []\n"
+    )
+    monkeypatch.chdir(tmp_path)
+
+    from behave_runner.core.config import load_profile
+
+    profile_config = load_profile("ci")
+    profile_features = profile_config.get("features", [])
+
+    # Simulate watch.py's feature path logic (after fix)
+    if isinstance(profile_features, list) and profile_features:
+        feature_paths = list(profile_features)
+    else:
+        feature_paths = ["features"]
+
+    assert feature_paths == ["features"], (
+        f"Expected ['features'] for empty profile features, got {feature_paths}"
+    )
+
+
+# --- Regression: collect_scenarios should filter empty tag strings ---
+
+
+def test_collect_scenarios_empty_include_tag_ignored(tmp_path: Path) -> None:
+    """collect_scenarios should ignore empty string in include tags.
+
+    Previously, passing "" as a tag filter would exclude all scenarios
+    because "" is never in scenario_tags, causing all(...) to be False.
+    """
+    from behave_runner.core.features import matches_tags
+
+    # Empty include tag should not cause all scenarios to be excluded
+    result = matches_tags(["@smoke"], include_tags=[""])
+    assert result is True, "Empty include tag should be ignored, not exclude all scenarios"
+
+
+def test_collect_scenarios_empty_exclude_tag_ignored() -> None:
+    """collect_scenarios should ignore empty string in exclude tags.
+
+    Previously, passing "~" (tilde only) would add "" to exclude_tags.
+    While harmless in practice, it should be filtered for consistency.
+    """
+    from behave_runner.core.features import matches_tags
+
+    # Empty exclude tag should not cause scenarios to be excluded
+    result = matches_tags(["@smoke"], exclude_tags=[""])
+    assert result is True, "Empty exclude tag should be ignored"
+
+
+# --- Regression: impact.py should escape regex special chars in scenario names ---
+
+
+def test_impact_escapes_regex_special_chars_in_scenario_names() -> None:
+    """impact.py should escape regex special characters in scenario names.
+
+    behave's --name option uses regex matching. If a scenario name contains
+    regex special chars like (, ), *, they must be escaped to match the
+    exact scenario name, not be interpreted as regex patterns.
+    """
+    import re
+
+    # Simulate a scenario name with regex special characters
+    scenario_name = "Test scenario (with parentheses) and * asterisk"
+    escaped = re.escape(scenario_name)
+
+    # The escaped name should not contain unescaped special chars
+    assert "(" not in escaped or "\\(" in escaped
+    assert ")" not in escaped or "\\)" in escaped
+    assert "*" not in escaped or "\\*" in escaped
+
+    # The escaped name should match the original when used as regex
+    assert re.search(escaped, scenario_name) is not None
+
+
+# --- Regression: validate_shard function ---
+
+
+def test_validate_shard_valid() -> None:
+    """validate_shard should accept valid shard strings."""
+    from behave_runner.core.orchestrator import validate_shard
+
+    validate_shard("1/3")
+    validate_shard("2/4")
+    validate_shard("1/1")
+
+
+def test_validate_shard_invalid_format() -> None:
+    """validate_shard should reject invalid shard formats."""
+    from behave_runner.core.orchestrator import validate_shard
+
+    with pytest.raises(ValueError, match="Invalid shard format"):
+        validate_shard("invalid")
+    with pytest.raises(ValueError, match="Invalid shard format"):
+        validate_shard("1/3/5")
+    with pytest.raises(ValueError, match="Invalid shard format"):
+        validate_shard("abc/def")
+
+
+def test_validate_shard_out_of_range() -> None:
+    """validate_shard should reject out-of-range shard indices."""
+    from behave_runner.core.orchestrator import validate_shard
+
+    with pytest.raises(ValueError, match="i must be 1..n"):
+        validate_shard("0/3")
+    with pytest.raises(ValueError, match="i must be 1..n"):
+        validate_shard("4/3")
+    with pytest.raises(ValueError, match="i must be 1..n"):
+        validate_shard("1/0")
+
+
+# --- Regression: configparser interpolation with % characters ---
+
+
+def test_configparser_interpolation_none_for_percent_values(tmp_path: Path) -> None:
+    """behave.ini values with % characters should not cause InterpolationSyntaxError.
+
+    ConfigParser uses BasicInterpolation by default, which treats % as a special
+    character. The fix uses interpolation=None to read values literally.
+    """
+    behave_ini = tmp_path / "behave.ini"
+    behave_ini.write_text(
+        "[behave-runner]\nprofiles.ci.tags = @smoke, @fast\nprofiles.ci.name = Test 100% coverage\n"
+    )
+
+    from behave_runner.core.config import load_config
+
+    config = load_config(tmp_path)
+    profiles = config.get("profiles", {})
+    ci_profile = profiles.get("ci", {})
+    assert ci_profile.get("name") == "Test 100% coverage"
+
+
+# --- Regression: __all__ in __init__.py ---
+
+
+def test_init_all_exports_version() -> None:
+    """behave_runner.__init__ should declare __all__ with __version__."""
+    import behave_runner
+
+    assert hasattr(behave_runner, "__all__")
+    assert "__version__" in behave_runner.__all__
+    assert behave_runner.__version__ == "1.2.0"

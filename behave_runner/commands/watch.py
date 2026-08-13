@@ -9,8 +9,10 @@ from pathlib import Path
 import typer
 from rich.console import Console
 
-from behave_runner.core.orchestrator import RunConfig, run
+from behave_runner.core.config import load_profile
+from behave_runner.core.orchestrator import RunConfig, run, validate_shard
 from behave_runner.core.watcher import FileWatcher
+from behave_runner.exceptions import ConfigError
 
 console = Console()
 
@@ -38,11 +40,15 @@ def _make_callback(
                 return
         console.print(f"\n[cyan]Change detected: {', '.join(str(p) for p in changed)}[/cyan]")
         console.print("[cyan]Re-running tests...[/cyan]")
-        config = RunConfig(
-            features=feature_paths,
-            tags=tags,
-            **config_overrides,  # type: ignore[arg-type]
-        )
+        try:
+            config = RunConfig(
+                features=feature_paths,
+                tags=tags,
+                **config_overrides,  # type: ignore[arg-type]
+            )
+        except (ValueError, TypeError) as e:
+            console.print(f"[red]Error: {e}[/red]")
+            return
         exit_code = run(config)
         if exit_code == 0:
             console.print("[green]All tests passed.[/green]")
@@ -90,7 +96,35 @@ def watch_command(
         console.print("[red]Error: --debounce must be a non-negative integer.[/red]")
         raise typer.Exit(2)
 
-    feature_paths = features if features else ["features"]
+    profile_config: dict[str, object] = {}
+    if profile is not None:
+        try:
+            profile_config = load_profile(profile)
+        except ConfigError as e:
+            console.print(f"[red]Error: {e}[/red]")
+            raise typer.Exit(2) from e
+
+    # Features: CLI takes priority, then profile, then default
+    if features:
+        feature_paths = list(features)
+    else:
+        profile_features = profile_config.get("features", [])
+        feature_paths = (
+            list(profile_features)
+            if isinstance(profile_features, list) and profile_features
+            else ["features"]
+        )
+
+    # Tags: merge CLI tags with profile tags
+    profile_tags = profile_config.get("tags", [])
+    p_tags_list = profile_tags if isinstance(profile_tags, list) else []
+    tags = [*tags, *p_tags_list] if (tags or p_tags_list) else []
+
+    # Smoke from profile adds @smoke tag (same as run command)
+    profile_smoke = profile_config.get("smoke", False)
+    if profile_smoke and "@smoke" not in tags:
+        tags = [*tags, "@smoke"]
+
     watch_paths = [Path(p) for p in feature_paths]
     watch_paths.extend(p for p in _DEFAULT_PATHS if p not in watch_paths)
 
@@ -111,23 +145,62 @@ def watch_command(
     if scenario_timeout is not None:
         config_overrides["scenario_timeout"] = scenario_timeout
 
-    if profile is not None:
-        from behave_runner.core.config import load_profile
-        from behave_runner.exceptions import ConfigError
-
-        try:
-            profile_config = load_profile(profile)
-        except ConfigError as e:
-            console.print(f"[red]Error: {e}[/red]")
-            raise typer.Exit(2) from e
-
-        # Merge profile values (CLI takes priority)
-        for key in ("retries", "parallel", "fmt", "scenario_timeout"):
+    # Merge profile values (CLI takes priority)
+    # Note: "format" in profile maps to "fmt" in RunConfig
+    if profile_config:
+        for key in (
+            "retries",
+            "parallel",
+            "scenario_timeout",
+            "timeout",
+            "parallel_scheme",
+            "parallel_balance",
+            "parallel_timing_file",
+            "shard",
+        ):
             if key not in config_overrides and key in profile_config:
                 config_overrides[key] = profile_config[key]
-        for key in ("ui", "debug", "trace", "priority_order", "fail_fast"):
+        if "max_failures" not in config_overrides:
+            if "max_failures" in profile_config:
+                config_overrides["max_failures"] = profile_config["max_failures"]
+            elif "max_fail" in profile_config:
+                config_overrides["max_failures"] = profile_config["max_fail"]
+        if "fmt" not in config_overrides and "format" in profile_config:
+            config_overrides["fmt"] = profile_config["format"]
+        if "outfile" not in config_overrides and "output" in profile_config:
+            config_overrides["outfile"] = profile_config["output"]
+        # name: list filter from profile (no CLI equivalent on watch command)
+        p_name = profile_config.get("name", [])
+        if isinstance(p_name, list) and p_name:
+            config_overrides["name"] = p_name
+        for key in ("ui", "debug", "trace", "priority_order", "fail_fast", "flaky_report"):
             if key in profile_config and profile_config[key]:
                 config_overrides[key] = True
+        # Profile-only settings (no CLI equivalent on watch command)
+        for key in ("dry_run", "stop_on_failure", "no_color", "verbose"):
+            if key in profile_config and profile_config[key]:
+                config_overrides[key] = True
+
+        # Validate flaky_report: requires retries > 0 (same as run.py)
+        p_flaky = config_overrides.get("flaky_report", False)
+        p_retries = config_overrides.get("retries")
+        if p_flaky and (p_retries is None or p_retries == 0):
+            console.print("[yellow]--flaky-report requires --retries > 0. Ignoring.[/yellow]")
+            config_overrides.pop("flaky_report", None)
+
+        # Validate shard format (same as run.py)
+        p_shard = config_overrides.get("shard")
+        if p_shard is not None:
+            if not isinstance(p_shard, str):
+                console.print(
+                    f"[red]Invalid shard: must be a string like '1/3', got {p_shard!r}[/red]"
+                )
+                raise typer.Exit(2)
+            try:
+                validate_shard(p_shard)
+            except ValueError as e:
+                console.print(f"[red]{e}[/red]")
+                raise typer.Exit(2) from e
 
     on_change = _make_callback(feature_paths, tags, pattern, config_overrides)
     watcher = FileWatcher(watch_paths, on_change, debounce_ms=debounce)

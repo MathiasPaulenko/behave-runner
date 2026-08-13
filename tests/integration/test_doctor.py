@@ -33,7 +33,7 @@ def test_doctor_passes_flags_through() -> None:
     """Test doctor passes -- flags through to behave-doctor."""
     if not importlib.util.find_spec("behave_doctor"):
         pytest.skip("behave-doctor not installed")
-    with patch("behave_runner.commands.doctor.subprocess.run") as mock_run:
+    with patch("behave_runner.core.deps.subprocess.run") as mock_run:
         mock_run.return_value.returncode = 0
         runner.invoke(app, ["doctor", "tests/fixtures/minimal", "--fix"])
     assert mock_run.called
@@ -47,7 +47,7 @@ def test_doctor_passes_multiple_flags() -> None:
     """Test doctor passes multiple -- flags through to behave-doctor."""
     if not importlib.util.find_spec("behave_doctor"):
         pytest.skip("behave-doctor not installed")
-    with patch("behave_runner.commands.doctor.subprocess.run") as mock_run:
+    with patch("behave_runner.core.deps.subprocess.run") as mock_run:
         mock_run.return_value.returncode = 0
         runner.invoke(app, ["doctor", "--fix", "--verbose", "tests/fixtures/minimal"])
     cmd = mock_run.call_args[0][0]
@@ -60,7 +60,7 @@ def test_doctor_no_args() -> None:
     """Test doctor with no args calls behave-doctor with no extra args."""
     if not importlib.util.find_spec("behave_doctor"):
         pytest.skip("behave-doctor not installed")
-    with patch("behave_runner.commands.doctor.subprocess.run") as mock_run:
+    with patch("behave_runner.core.deps.subprocess.run") as mock_run:
         mock_run.return_value.returncode = 0
         runner.invoke(app, ["doctor"])
     cmd = mock_run.call_args[0][0]
@@ -71,7 +71,7 @@ def test_doctor_propagates_exit_code() -> None:
     """Test doctor propagates behave-doctor exit code."""
     if not importlib.util.find_spec("behave_doctor"):
         pytest.skip("behave-doctor not installed")
-    with patch("behave_runner.commands.doctor.subprocess.run") as mock_run:
+    with patch("behave_runner.core.deps.subprocess.run") as mock_run:
         mock_run.return_value.returncode = 1
         result = runner.invoke(app, ["doctor", "tests/fixtures/minimal"])
     assert result.exit_code == 1
@@ -82,7 +82,7 @@ def test_doctor_file_not_found() -> None:
     with (
         patch("behave_runner.core.deps.is_installed", return_value=True),
         patch(
-            "behave_runner.commands.doctor.subprocess.run",
+            "behave_runner.core.deps.subprocess.run",
             side_effect=FileNotFoundError,
         ),
     ):
@@ -96,7 +96,7 @@ def test_doctor_os_error() -> None:
     with (
         patch("behave_runner.core.deps.is_installed", return_value=True),
         patch(
-            "behave_runner.commands.doctor.subprocess.run",
+            "behave_runner.core.deps.subprocess.run",
             side_effect=OSError("permission denied"),
         ),
     ):

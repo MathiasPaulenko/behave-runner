@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 from typing import Any
 
@@ -10,10 +9,10 @@ import typer
 from rich.console import Console
 
 from behave_runner.core.config import load_profile
-from behave_runner.core.orchestrator import RunConfig, run
+from behave_runner.core.orchestrator import RunConfig, run, validate_shard
 from behave_runner.exceptions import ConfigError
 
-_SHARD_RE = re.compile(r"^(\d+)/(\d+)$")
+console_err = Console()
 
 
 def run_command(
@@ -79,7 +78,6 @@ def run_command(
         tags = [*tags, "@smoke"]
 
     if flaky_report and (retries is None or retries == 0):
-        console_err = Console()
         console_err.print("[yellow]--flaky-report requires --retries > 0. Ignoring.[/yellow]")
         flaky_report = False
 
@@ -88,7 +86,6 @@ def run_command(
         try:
             profile_config = load_profile(profile)
         except ConfigError as e:
-            console_err = Console()
             console_err.print(f"[red]Error: {e}[/red]")
             raise typer.Exit(2) from e
 
@@ -96,23 +93,15 @@ def run_command(
     p_shard = shard if shard is not None else profile_config.get("shard")
     if p_shard is not None:
         if not isinstance(p_shard, str):
-            console_err = Console()
             console_err.print(
                 f"[red]Invalid shard: must be a string like '1/3', got {p_shard!r}[/red]"
             )
             raise typer.Exit(2)
-        match = _SHARD_RE.match(p_shard)
-        if not match:
-            console_err = Console()
-            console_err.print(
-                f"[red]Invalid shard format: '{p_shard}'. Expected i/n (e.g. 1/3).[/red]"
-            )
-            raise typer.Exit(2)
-        i, n = int(match.group(1)), int(match.group(2))
-        if i < 1 or n < 1 or i > n:
-            console_err = Console()
-            console_err.print(f"[red]Invalid shard: {p_shard}. i must be 1..n.[/red]")
-            raise typer.Exit(2)
+        try:
+            validate_shard(p_shard)
+        except ValueError as e:
+            console_err.print(f"[red]{e}[/red]")
+            raise typer.Exit(2) from e
 
     # Features: CLI takes priority, then profile, then default
     if features:
@@ -123,7 +112,7 @@ def run_command(
 
     # Smoke from profile adds @smoke tag (same as CLI --smoke)
     profile_smoke = profile_config.get("smoke", False)
-    if profile_smoke:
+    if profile_smoke and "@smoke" not in tags:
         tags = [*tags, "@smoke"]
 
     # Tags: merge CLI tags (including --smoke) with profile tags
@@ -165,7 +154,6 @@ def run_command(
 
     # Re-check flaky_report after profile merge: profile may set retries=0
     if p_flaky and (p_retries is None or p_retries == 0):
-        console_err = Console()
         console_err.print("[yellow]--flaky-report requires --retries > 0. Ignoring.[/yellow]")
         p_flaky = False
     p_no_color = profile_config.get("no_color", False)
@@ -202,7 +190,6 @@ def run_command(
             trace=p_trace,
         )
     except (ValueError, TypeError) as e:
-        console_err = Console()
         console_err.print(f"[red]Error: {e}[/red]")
         raise typer.Exit(2) from e
 

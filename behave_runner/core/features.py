@@ -35,8 +35,8 @@ def collect_scenarios(
         pattern: Regex pattern to match scenario names.
         feature_name: Case-insensitive substring to filter feature names.
     """
-    include_tags = [t.strip() for t in (tags or []) if not t.startswith("~")]
-    exclude_tags = [t[1:].strip() for t in (tags or []) if t.startswith("~")]
+    include_tags = [t.strip() for t in (tags or []) if not t.startswith("~") and t.strip()]
+    exclude_tags = [t[1:].strip() for t in (tags or []) if t.startswith("~") and t[1:].strip()]
 
     regex = re.compile(pattern) if pattern else None
 

@@ -33,7 +33,7 @@ def test_format_default() -> None:
     """Test format with no flags formats by default (no --in-place needed)."""
     if not importlib.util.find_spec("behave_format"):
         pytest.skip("behave-format not installed")
-    with patch("behave_runner.commands.format_cmd.subprocess.run") as mock_run:
+    with patch("behave_runner.core.deps.subprocess.run") as mock_run:
         mock_run.return_value.returncode = 0
         runner.invoke(app, ["format", "tests/fixtures/minimal/features"])
     cmd = mock_run.call_args[0][0]
@@ -48,7 +48,7 @@ def test_format_check_flag_in_cmd() -> None:
     """Test --check is passed to behave-format."""
     with (
         patch("behave_runner.core.deps.is_installed", return_value=True),
-        patch("behave_runner.commands.format_cmd.subprocess.run") as mock_run,
+        patch("behave_runner.core.deps.subprocess.run") as mock_run,
     ):
         mock_run.return_value.returncode = 0
         runner.invoke(app, ["format", "--check", "features/"])
@@ -60,7 +60,7 @@ def test_format_diff_flag_in_cmd() -> None:
     """Test --diff is passed to behave-format."""
     with (
         patch("behave_runner.core.deps.is_installed", return_value=True),
-        patch("behave_runner.commands.format_cmd.subprocess.run") as mock_run,
+        patch("behave_runner.core.deps.subprocess.run") as mock_run,
     ):
         mock_run.return_value.returncode = 0
         runner.invoke(app, ["format", "--diff", "features/"])
@@ -72,7 +72,7 @@ def test_format_passthrough_flags() -> None:
     """Test that unknown -- flags pass through to behave-format."""
     with (
         patch("behave_runner.core.deps.is_installed", return_value=True),
-        patch("behave_runner.commands.format_cmd.subprocess.run") as mock_run,
+        patch("behave_runner.core.deps.subprocess.run") as mock_run,
     ):
         mock_run.return_value.returncode = 0
         runner.invoke(
@@ -88,7 +88,7 @@ def test_format_no_args() -> None:
     """Test format with no args calls behave-format with no extra args."""
     with (
         patch("behave_runner.core.deps.is_installed", return_value=True),
-        patch("behave_runner.commands.format_cmd.subprocess.run") as mock_run,
+        patch("behave_runner.core.deps.subprocess.run") as mock_run,
     ):
         mock_run.return_value.returncode = 0
         runner.invoke(app, ["format"])
@@ -100,7 +100,7 @@ def test_format_propagates_exit_code() -> None:
     """Test format propagates behave-format exit code."""
     with (
         patch("behave_runner.core.deps.is_installed", return_value=True),
-        patch("behave_runner.commands.format_cmd.subprocess.run") as mock_run,
+        patch("behave_runner.core.deps.subprocess.run") as mock_run,
     ):
         mock_run.return_value.returncode = 1
         result = runner.invoke(app, ["format", "tests/fixtures/minimal/features"])
@@ -120,7 +120,7 @@ def test_format_file_not_found() -> None:
     with (
         patch("behave_runner.core.deps.is_installed", return_value=True),
         patch(
-            "behave_runner.commands.format_cmd.subprocess.run",
+            "behave_runner.core.deps.subprocess.run",
             side_effect=FileNotFoundError,
         ),
     ):
@@ -134,7 +134,7 @@ def test_format_os_error() -> None:
     with (
         patch("behave_runner.core.deps.is_installed", return_value=True),
         patch(
-            "behave_runner.commands.format_cmd.subprocess.run",
+            "behave_runner.core.deps.subprocess.run",
             side_effect=OSError("permission denied"),
         ),
     ):

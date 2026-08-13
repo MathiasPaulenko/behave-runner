@@ -92,7 +92,7 @@ def test_open_trace_with_dep_no_trace_file(tmp_path: Path, monkeypatch: pytest.M
     monkeypatch.chdir(tmp_path)
     with (
         patch("behave_runner.core.deps.is_installed", return_value=True),
-        patch("behave_runner.commands.open_cmd.subprocess.run") as mock_run,
+        patch("behave_runner.core.deps.subprocess.run") as mock_run,
     ):
         mock_run.return_value.returncode = 0
         result = runner.invoke(app, ["open", "trace"])
@@ -110,7 +110,7 @@ def test_open_trace_with_trace_file(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     monkeypatch.chdir(tmp_path)
     with (
         patch("behave_runner.core.deps.is_installed", return_value=True),
-        patch("behave_runner.commands.open_cmd.subprocess.run") as mock_run,
+        patch("behave_runner.core.deps.subprocess.run") as mock_run,
     ):
         mock_run.return_value.returncode = 0
         result = runner.invoke(app, ["open", "trace"])
@@ -125,7 +125,7 @@ def test_open_trace_propagates_exit_code() -> None:
     """Test open trace propagates behave-trace exit code."""
     with (
         patch("behave_runner.core.deps.is_installed", return_value=True),
-        patch("behave_runner.commands.open_cmd.subprocess.run") as mock_run,
+        patch("behave_runner.core.deps.subprocess.run") as mock_run,
     ):
         mock_run.return_value.returncode = 1
         result = runner.invoke(app, ["open", "trace"])
@@ -137,7 +137,7 @@ def test_open_trace_file_not_found() -> None:
     with (
         patch("behave_runner.core.deps.is_installed", return_value=True),
         patch(
-            "behave_runner.commands.open_cmd.subprocess.run",
+            "behave_runner.core.deps.subprocess.run",
             side_effect=FileNotFoundError,
         ),
     ):
@@ -151,7 +151,7 @@ def test_open_trace_os_error() -> None:
     with (
         patch("behave_runner.core.deps.is_installed", return_value=True),
         patch(
-            "behave_runner.commands.open_cmd.subprocess.run",
+            "behave_runner.core.deps.subprocess.run",
             side_effect=OSError("permission denied"),
         ),
     ):

@@ -79,7 +79,7 @@ def test_report_generate_outfile_per_format(tmp_path: Path) -> None:
         "html": "report.html",
         "md": "report.md",
         "sheets": "report.xlsx",
-        "file": "report.txt",
+        "file": "report.docx",
     }
     for fmt, filename in cases.items():
         with patch("behave_runner.commands.report.run", return_value=0) as mock_run:

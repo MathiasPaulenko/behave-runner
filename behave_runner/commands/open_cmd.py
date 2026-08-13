@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-import subprocess  # nosec B404
 from pathlib import Path
 from typing import Literal
 
 import typer
 from rich.console import Console
 
-from behave_runner.core.deps import check_optional
+from behave_runner.core.deps import check_optional, run_external
 from behave_runner.core.output import open_latest_report
 
 console = Console()
@@ -64,17 +63,4 @@ def _open_trace() -> None:
             "[yellow]Warning: trace.json not found. Run with --trace to generate one.[/yellow]"
         )
 
-    try:
-        result = subprocess.run(  # noqa: S603  # nosec
-            cmd,
-            check=False,
-        )
-        raise typer.Exit(result.returncode)
-    except FileNotFoundError:
-        console.print(
-            "[red]Error: behave-trace not found. Install with: pip install behave-trace[/red]"
-        )
-        raise typer.Exit(2) from None
-    except OSError as e:
-        console.print(f"[red]Error running behave-trace: {e}[/red]")
-        raise typer.Exit(2) from None
+    raise typer.Exit(run_external(cmd, "behave-trace", "behave-trace"))
