@@ -18,9 +18,10 @@ cd my-project
 The command creates a standard layout with a `features/` directory,
 `steps/`, and an `environment.py` file.
 
-!!! tip "Name is optional"
-    Running `behave-runner init` without `--name` creates the structure in the
-    current directory.
+!!! note "Project name"
+    `--name` is required. The command creates a standard layout with a
+    `features/` directory, `steps/`, and an `environment.py` file inside the
+    named project directory.
 
 ## 2. Add a feature
 

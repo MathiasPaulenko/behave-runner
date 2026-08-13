@@ -44,7 +44,7 @@ are not installed.
 ## Requirements
 
 - Python 3.11 or higher
-- Behave ecosystem packages (installed automatically as optional extras)
+- Core dependencies (behave, behave-kit, behave-model) are installed automatically
 
 ## Installation
 
@@ -72,11 +72,11 @@ pre-commit install
 ### 1. Initialize a project
 
 ```bash
-behave-runner init
+behave-runner init --name my-project
 ```
 
 This creates a standard Behave layout: `features/`, `features/steps/` and
-`environment.py`.
+`environment.py` inside the named project directory.
 
 ### 2. List scenarios
 
@@ -182,29 +182,29 @@ below can be installed individually or through `behave-runner` extras.
 
 <!-- markdownlint-disable MD013 -->
 
-| Library                         | Category   | Purpose                                  | Extra            |
-| ------------------------------- | ---------- | ---------------------------------------- | ---------------- |
-| `behave`                        | Core       | BDD framework.                           | core             |
-| `behave-kit`                    | Core       | Timeouts and config profiles.            | core             |
-| `behave-model`                  | Core       | Feature and scenario parsing.            | core             |
-| `behave-pool`                   | Execution  | Parallel and sharded runs.               | `parallel`       |
-| `behave-priority`               | Execution  | Priority ordering and smoke flags.       | `priority`       |
-| `behave-retry`                  | Execution  | Retry and flaky report support.          | `retry`          |
-| `behave-trace`                  | Debug      | Trace viewer and UI.                     | `trace`          |
-| `behave-doctor`                 | Quality    | Project health and impact analysis.      | `doctor`         |
-| `behave-lint`                   | Quality    | Feature file linting.                    | `lint`           |
-| `behave-format`                 | Quality    | Feature file formatting.                 | `format`         |
-| `behave-gen`                    | Scaffold   | Project and feature generation.          | `gen`            |
-| `behave-steplib`                | Steps      | Step library management.                 | `steplib`        |
-| `behave-comments`               | Utility    | Comment metadata extraction.             | `comments`       |
-| `behave-tables`                 | Utility    | Table helpers.                           | —                |
-| `wavexis`                       | Recording  | Browser session recording.               | `record`         |
-| `behave-modern-console-report`  | Reporting  | Console report.                          | `report-console` |
-| `behave-modern-html-report`     | Reporting  | HTML report.                             | `report-html`    |
-| `behave-modern-md-report`       | Reporting  | Markdown report.                         | `report-md`      |
-| `behave-modern-json-report`     | Reporting  | JSON report.                             | `report-json`    |
-| `behave-modern-sheets-report`   | Reporting  | XLSX/CSV report.                         | `report-sheets`  |
-| `behave-modern-file-report`     | Reporting  | File report.                             | `report-file`    |
+| Library                                                                                                           | Category   | Purpose                                  | Extra            |
+| ----------------------------------------------------------------------------------------------------------------- | ---------- | ---------------------------------------- | ---------------- |
+| [behave](https://github.com/behave/behave)                                                                        | Core       | BDD framework.                           | included         |
+| [behave-kit](https://github.com/MathiasPaulenko/behave-kit)                                                       | Core       | Timeouts and config profiles.            | included         |
+| [behave-model](https://github.com/MathiasPaulenko/behave-model)                                                   | Core       | Feature and scenario parsing.            | included         |
+| [behave-pool](https://github.com/MathiasPaulenko/behave-pool)                                                     | Execution  | Parallel and sharded runs.               | `parallel`       |
+| [behave-priority](https://github.com/MathiasPaulenko/behave-priority)                                             | Execution  | Priority ordering and smoke flags.       | `priority`       |
+| [behave-retry](https://github.com/MathiasPaulenko/behave-retry)                                                   | Execution  | Retry and flaky report support.          | `retry`          |
+| [behave-trace](https://github.com/MathiasPaulenko/behave-trace)                                                   | Debug      | Trace viewer and UI.                     | `trace`          |
+| [behave-doctor](https://github.com/MathiasPaulenko/behave-doctor)                                                 | Quality    | Project health and impact analysis.      | `doctor`         |
+| [behave-lint](https://github.com/MathiasPaulenko/behave-lint)                                                     | Quality    | Feature file linting.                    | `lint`           |
+| [behave-format](https://github.com/MathiasPaulenko/behave-format)                                                 | Quality    | Feature file formatting.                 | `format`         |
+| [behave-gen](https://github.com/MathiasPaulenko/behave-gen)                                                       | Scaffolding | Project and feature generation.          | `gen`            |
+| [behave-steplib](https://github.com/MathiasPaulenko/behave-steplib)                                               | Steps      | Step library management.                 | `steplib`        |
+| [behave-comments](https://github.com/MathiasPaulenko/behave-comments)                                             | Utility    | Comment metadata extraction.             | `comments`       |
+| [behave-tables](https://github.com/MathiasPaulenko/behave-tables)                                                 | Utility    | Table helpers.                           | —                |
+| [wavexis](https://github.com/MathiasPaulenko/wavexis)                                                             | Recording  | Browser session recording.               | `record`         |
+| [behave-modern-console-report](https://github.com/MathiasPaulenko/behave-modern-console-report)                  | Reporting  | Console report.                          | `report-console` |
+| [behave-modern-html-report](https://github.com/MathiasPaulenko/behave-modern-html-report)                         | Reporting  | HTML report.                             | `report-html`    |
+| [behave-modern-md-report](https://github.com/MathiasPaulenko/behave-modern-md-report)                             | Reporting  | Markdown report.                         | `report-md`      |
+| [behave-modern-json-report](https://github.com/MathiasPaulenko/behave-modern-json-report)                         | Reporting  | JSON report.                             | `report-json`    |
+| [behave-modern-sheets-report](https://github.com/MathiasPaulenko/behave-modern-sheets-report)                     | Reporting  | XLSX/CSV report.                         | `report-sheets`  |
+| [behave-modern-file-report](https://github.com/MathiasPaulenko/behave-modern-file-report)                        | Reporting  | File report.                             | `report-file`    |
 
 <!-- markdownlint-enable MD013 -->
 
@@ -239,6 +239,7 @@ for guidelines.
 - **Issues**: <https://github.com/MathiasPaulenko/behave-runner/issues>
 - **Discussions**: <https://github.com/MathiasPaulenko/behave-runner/discussions>
 - **PyPI**: <https://pypi.org/project/behave-runner/>
+- **Changelog**: <https://github.com/MathiasPaulenko/behave-runner/blob/main/CHANGELOG.md>
 
 ## Acknowledgements
 

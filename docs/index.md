@@ -17,7 +17,10 @@ running, listing, selecting, linting, formatting, watching, reporting and more.
 - **report** — Generate test reports (console, HTML, Markdown, JSON, sheets, file)
 - **trace** — Visual trace of test execution
 - **steps** — Manage step libraries
-- **generate** — Scaffold new projects
+- **generate** — Scaffold new projects and step definitions
+- **init** — Initialize a new behave project
+- **record** — Record browser sessions and generate steps
+- **open** — Open the latest report or trace in the browser
 - **config** — Manage configuration
 
 ## Installation

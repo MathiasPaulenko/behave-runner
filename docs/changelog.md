@@ -6,6 +6,110 @@ at the repository root.
 
 ## Unreleased
 
+## [1.3.0] - 2026-08-14
+
+### Fixed
+
+- Fixed `configparser` using default interpolation, which caused
+  `InterpolationSyntaxError` when `behave.ini` values contained `%` characters.
+  Now uses `interpolation=None` to read values literally.
+- Fixed `RunConfig` accepting empty strings for `parallel_scheme`,
+  `parallel_balance`, and `parallel_timing_file` fields.
+- Fixed `_normalize_list` not filtering empty strings from list input
+  (only filtered from comma-separated string input).
+- Fixed `watch.py` using empty list as default features when profile features
+  list was empty, instead of falling back to `["features"]` like `run.py`.
+- Fixed `collect_scenarios` not filtering empty strings from include and
+  exclude tags, causing empty tag filters to exclude all scenarios.
+- Fixed `impact.py` not escaping regex special characters in scenario names
+  before passing them to behave's `--name` option.
+- Re-added `utils.py` to `docs/architecture.md` core modules table and
+  `docs/python-api.md` mkdocstrings reference (was incorrectly removed
+  in a prior commit — the file exists and is used by `core/output.py`).
+- Added missing `parallel_scheme`, `parallel_balance`, and
+  `parallel_timing_file` keys to `docs/configuration.md` configuration table
+  and merge scope note.
+- Fixed `docs/commands/run.md` description to accurately reflect that the
+  orchestrator builds a single behave command and executes it via
+  `subprocess.run`, rather than dispatching to separate runner paths.
+- Fixed broken `behave-modern-file-report` GitHub URL (plural → singular) in
+  README, `docs/ecosystem.md`, and `docs/installation.md`.
+- Fixed README and `docs/ecosystem.md` listing "core" as an installable extra
+  for behave, behave-kit, and behave-model. Changed to "included" since these
+  are installed automatically with the base package.
+- Fixed `docs/index.md` features list missing `init`, `record`, and `open`
+  commands.
+- Fixed README Requirements section incorrectly stating ecosystem packages are
+  installed as optional extras (core deps are installed automatically).
+- Added Changelog link to README Links section.
+- Updated LICENSE copyright year to `2025-2026`.
+- Updated bug report template version placeholder from `0.1.0` to `1.2.0`.
+- Removed placeholder `FUNDING.yml` (all content was commented out).
+- Added `.pre-commit-config.yaml` to sdist include list.
+- Fixed `test_steps_no_args_shows_help` and `test_trace_no_args_shows_help`
+  tests expecting non-zero exit code when Typer's `no_args_is_help=True`
+  correctly exits with 0.
+- Fixed `docs/ecosystem.md` intro stating "six categories" when the table
+  actually has nine (core, execution, debug, quality, scaffolding, steps,
+  utility, recording, reporting).
+- Fixed 5 purpose text inconsistencies between README and
+  `docs/ecosystem.md` quick reference tables (behave-comments,
+  behave-doctor, behave-modern-console-report, behave-priority,
+  behave-retry).
+- Fixed README ecosystem table using "Scaffold" instead of "Scaffolding"
+  for the behave-gen category.
+- Fixed `.github/workflows/ci.yml` `pip-audit` missing `--strict` flag,
+  inconsistent with the Makefile `security` target and `docs/ci-cd.md`
+  CI template.
+- Fixed `docs/ecosystem.md` claiming `behave-tables` is "bundled with the
+  core installation" when it is not a dependency of `behave-runner`.
+
+### Changed
+
+- Extracted shared `validate_shard` function to `orchestrator.py` to eliminate
+  duplicated shard validation logic between `run.py` and `watch.py`.
+- Moved inline imports (`importlib`, `warnings`, `load_profile`, `ConfigError`)
+  to module level in `orchestrator.py` and `watch.py`.
+- Added `__all__` to `behave_runner/__init__.py` to explicitly declare the
+  public API.
+- Fixed misleading `_normalize_profile` docstring that referenced only INI
+  config when it handles both INI and TOML values.
+- Added `features.py` to `docs/python-api.md` API reference.
+- Synced `docs/changelog.md` with `CHANGELOG.md` (was missing `[1.2.0]`
+  section).
+
+## [1.2.0] - 2026-08-13
+
+### Fixed
+
+- Fixed formatter resolution in `orchestrator.py`: changed `_REPORT_FORMATTERS`
+  from entry point names to scoped names (`module:Class`) so behave 1.2.6 can
+  resolve them via `load_formatter_class()`.
+- Fixed `--parallel` being passed to behave without checking if `behave-pool`
+  is functionally installed. Added `_is_package_functional()` helper that
+  verifies a package has real `.py` files, not just an empty namespace.
+- Fixed `--runner behave_pool` being passed to behave (not a valid CLI flag).
+- Fixed `--shard` being passed as a CLI flag instead of only via
+  `BEHAVE_POOL_SHARD` environment variable.
+- Fixed regression tests failing on Windows due to cross-drive `os.path.relpath`
+  errors by mocking `orchestrator.run` and using `monkeypatch.chdir`.
+
+### Added
+
+- Added comprehensive `behave` project fixture (`tests/fixtures/full/`) with
+  3 features, 10 scenarios, tags, hooks, and intentional failures.
+- Added integration tests for `select` command with full fixture (11 tests).
+- Added integration tests for `steps` command (13 tests).
+- Added integration tests for `trace` command (7 tests).
+- Added integration tests for `watch` command (3 tests).
+- Added unit tests for `FileWatcher` (5 tests: deleted files, nested dirs,
+  run loop, callback, debounce).
+- Added integration tests for `run` command with real execution (12 tests).
+
+### Changed
+
+- Updated `.gitignore` to cover generated reports and build artifacts.
+
 ## [1.1.0] - 2026-08-07
 
 ### Fixed

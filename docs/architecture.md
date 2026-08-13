@@ -26,15 +26,12 @@ For the `run` command, the orchestrator performs the following steps:
 3. If a `--profile` is selected, merge the profile values.
 4. For each optional flag, check whether the required extra is installed.
    - If missing, print a warning and degrade gracefully.
-5. Build the final `behave` command list.
-6. Dispatch to the appropriate execution path:
-   - sequential
-   - parallel (`behave-pool`)
-   - priority-ordered (`behave-priority`)
-   - retry (`behave-retry`)
-   - trace/UI/debug (`behave-trace`)
-   - sharded CI (`behave-pool`)
-7. Return the same exit code as the underlying runner.
+5. Build the final `behave` command list with appropriate flags and
+   environment variables.
+6. Execute the command via `subprocess.run`, passing environment variables
+   for features handled by optional extras (retries, priority, sharding,
+   scenario timeout).
+7. Return the same exit code as the underlying behave process.
 
 ## Component diagram
 
@@ -101,8 +98,9 @@ For the `run` command, the orchestrator performs the following steps:
 | `core/deps.py` | Check optional extras gracefully. |
 | `core/output.py` | Manage output directories. |
 | `core/watcher.py` | File watcher for the `watch` command. |
+| `core/features.py` | Parse feature files and collect scenarios. |
+| `utils.py` | Project root discovery and browser opening. |
 | `exceptions.py` | Custom exceptions. |
-| `utils.py` | Browser, editor, and project-root helpers. |
 
 ## Design principles
 

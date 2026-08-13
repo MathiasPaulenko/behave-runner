@@ -61,6 +61,9 @@ behave-runner run [OPTIONS] [FEATURES]...
 | `--output` | | Output file path for the generated report. |
 | `--parallel` | `-n` | Number of parallel workers. Requires `behave-pool`. |
 | `--shard` | | CI shard in `i/n` form, e.g. `1/3`. Requires `behave-pool`. |
+| `--parallel-scheme` | | Parallel distribution scheme (e.g. `scenario`, `feature`). Requires `behave-pool`. |
+| `--parallel-balance` | | Load balancing strategy (e.g. `lpt`, `round`). Requires `behave-pool`. |
+| `--parallel-timing-file` | | Timing file for LPT load balancing. Requires `behave-pool`. |
 | `--retries` | | Number of retries for failed scenarios. Requires `behave-retry`. |
 | `--flaky-report` | | Generate a flakiness report. Requires `--retries`. |
 | `--priority-order` | | Run scenarios in priority order. Requires `behave-priority`. |
@@ -120,7 +123,16 @@ behave-runner watch [OPTIONS] [FEATURES]...
 | `--tags` | `-t` | Filter by tags. |
 | `--debounce` | | Debounce time in milliseconds. Default: `500`. |
 | `--pattern` | | Glob pattern to filter watched files. |
-| `--ui` | | Use `behave-trace` UI mode when available. |
+| `--profile` | | Load a configuration profile from `pyproject.toml`. |
+| `--retries` | | Number of retries for failed scenarios. Requires `behave-retry`. |
+| `--parallel` | `-n` | Number of parallel processes. Requires `behave-pool`. |
+| `--format` | | Output format passed to `behave`. |
+| `--ui` | | Use `behave-trace` UI mode when available. Requires `behave-trace`. |
+| `--debug` | | Enable debug tracing. Requires `behave-trace`. |
+| `--trace` | | Enable trace viewer. Requires `behave-trace`. |
+| `--priority-order` | | Run scenarios in priority order. Requires `behave-priority`. |
+| `--fail-fast` | | Stop on first failure with priority. Requires `behave-priority`. |
+| `--scenario-timeout` | | Per-scenario timeout in seconds. Requires `behave-kit`. |
 
 ## init
 
@@ -132,7 +144,7 @@ behave-runner init [OPTIONS] [ARGS]...
 
 | Option | Description |
 | ------ | ----------- |
-| `--name` | Project name for the generated structure. |
+| `--name` | Project name for the generated structure. **Required.** |
 | `[ARGS]...` | Additional arguments for `behave-gen`. |
 
 ## lint
@@ -157,7 +169,6 @@ behave-runner format [OPTIONS] [ARGS]...
 | ------ | ----------- |
 | `--check` | Check only, do not modify files. |
 | `--diff` | Show diff of the changes. |
-| `--in-place` | Modify files in place. |
 | `[ARGS]...` | Arguments to pass to `behave-format`. |
 
 ## doctor
@@ -254,13 +265,13 @@ behave-runner steps list [ARGS]...
 
 List available step libraries.
 
-### steps install
+### steps show
 
 ```bash
-behave-runner steps install NAME [ARGS]...
+behave-runner steps show PATTERN [ARGS]...
 ```
 
-Install a step library by name.
+Show details for a specific step pattern.
 
 ### steps search
 
@@ -269,6 +280,30 @@ behave-runner steps search QUERY [ARGS]...
 ```
 
 Search for step libraries matching the query.
+
+### steps validate
+
+```bash
+behave-runner steps validate [ARGS]...
+```
+
+Validate step contracts.
+
+### steps init
+
+```bash
+behave-runner steps init [ARGS]...
+```
+
+Generate `features/environment.py` with autoload wiring.
+
+### steps install
+
+```bash
+behave-runner steps install NAME [ARGS]...
+```
+
+Install a step library by name.
 
 ## generate
 

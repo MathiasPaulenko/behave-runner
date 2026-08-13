@@ -18,15 +18,12 @@ behave-runner init [OPTIONS] [ARGS]...
 
 | Flag | Type | Default | Description |
 | --- | --- | --- | --- |
-| `--name` | TEXT | None | Project name for the generated structure. |
+| `--name` | TEXT | **required** | Project name for the generated structure. |
 | `[ARGS]...` | TEXT | None | Additional arguments for `behave-gen`. |
 
 ## Examples
 
 ```bash
-# Initialize in the current directory
-behave-runner init
-
 # Initialize a named project
 behave-runner init --name my-project
 

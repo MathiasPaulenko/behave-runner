@@ -6,8 +6,10 @@ Execute behave tests with native and optional ecosystem flags.
 
 The `run` command is the main entry point for executing behave scenarios.
 It builds the final behave command from the provided flags and optional
-configuration profiles, then dispatches to the right runner:
-sequential, parallel, priority-ordered, retry, sharded, or trace/UI.
+configuration profiles, then executes it via `subprocess.run`.
+Optional features (parallel, priority, retry, trace) are enabled via
+environment variables and CLI flags when the corresponding extras are
+installed.
 
 ## Usage
 
@@ -29,6 +31,9 @@ behave-runner run [OPTIONS] [FEATURES]...
 | `--output` | TEXT | None | Output file for the generated report. |
 | `--parallel` `-n` | INTEGER | None | Number of parallel workers. |
 | `--shard` | TEXT | None | CI shard in `i/n` form. |
+| `--parallel-scheme` | TEXT | None | Parallel distribution scheme (e.g. `scenario`, `feature`). |
+| `--parallel-balance` | TEXT | None | Load balancing strategy (e.g. `lpt`, `round`). |
+| `--parallel-timing-file` | TEXT | None | Timing file for LPT load balancing. |
 | `--retries` | INTEGER | None | Number of retries for failed scenarios. |
 | `--flaky-report` | BOOLEAN | `False` | Generate a flakiness report. |
 | `--priority-order` | BOOLEAN | `False` | Run scenarios in priority order. |
@@ -60,6 +65,9 @@ behave-runner run --dry-run --tags @smoke features/
 
 # Run a specific shard in CI
 behave-runner run --shard 1/3 --parallel 4
+
+# Parallel with scenario-based distribution and LPT balancing
+behave-runner run --parallel 4 --parallel-scheme scenario --parallel-balance lpt --parallel-timing-file timings.json
 ```
 
 ## Dependencies

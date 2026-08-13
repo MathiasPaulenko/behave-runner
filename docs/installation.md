@@ -17,7 +17,9 @@ pip install behave-runner
 ```
 
 This installs the CLI, the core orchestrator, and the integration with
-`behave`, `behave-kit`, and `behave-model`.
+[behave](https://github.com/behave/behave),
+[behave-kit](https://github.com/MathiasPaulenko/behave-kit), and
+[behave-model](https://github.com/MathiasPaulenko/behave-model).
 
 ## Optional extras
 
@@ -26,23 +28,23 @@ extras so you only install what you need.
 
 | Extra | Enables |
 | ----- | ------- |
-| `parallel` | Parallel execution via `behave-pool` |
-| `priority` | Priority ordering via `behave-priority` |
-| `retry` | Retry failed scenarios via `behave-retry` |
-| `trace` | Trace viewer and UI mode via `behave-trace` |
-| `lint` | Feature file linting via `behave-lint` |
-| `format` | Feature file formatting via `behave-format` |
-| `doctor` | Project health checks via `behave-doctor` |
-| `gen` | Project scaffolding via `behave-gen` |
-| `steplib` | Step library management via `behave-steplib` |
-| `comments` | Comment extraction via `behave-comments` |
-| `report-html` | HTML reports via `behave-modern-html-report` |
-| `report-md` | Markdown reports via `behave-modern-md-report` |
-| `report-json` | JSON reports via `behave-modern-json-report` |
-| `report-console` | Console reports via `behave-modern-console-report` |
-| `report-sheets` | Spreadsheet reports via `behave-modern-sheets-report` |
-| `report-file` | File reports via `behave-modern-file-report` |
-| `record` | Browser recording via `wavexis` |
+| `parallel` | Parallel execution via [behave-pool](https://github.com/MathiasPaulenko/behave-pool) |
+| `priority` | Priority ordering via [behave-priority](https://github.com/MathiasPaulenko/behave-priority) |
+| `retry` | Retry failed scenarios via [behave-retry](https://github.com/MathiasPaulenko/behave-retry) |
+| `trace` | Trace viewer and UI mode via [behave-trace](https://github.com/MathiasPaulenko/behave-trace) |
+| `lint` | Feature file linting via [behave-lint](https://github.com/MathiasPaulenko/behave-lint) |
+| `format` | Feature file formatting via [behave-format](https://github.com/MathiasPaulenko/behave-format) |
+| `doctor` | Project health checks via [behave-doctor](https://github.com/MathiasPaulenko/behave-doctor) |
+| `gen` | Project scaffolding via [behave-gen](https://github.com/MathiasPaulenko/behave-gen) |
+| `steplib` | Step library management via [behave-steplib](https://github.com/MathiasPaulenko/behave-steplib) |
+| `comments` | Comment extraction via [behave-comments](https://github.com/MathiasPaulenko/behave-comments) |
+| `report-html` | HTML reports via [behave-modern-html-report](https://github.com/MathiasPaulenko/behave-modern-html-report) |
+| `report-md` | Markdown reports via [behave-modern-md-report](https://github.com/MathiasPaulenko/behave-modern-md-report) |
+| `report-json` | JSON reports via [behave-modern-json-report](https://github.com/MathiasPaulenko/behave-modern-json-report) |
+| `report-console` | Console reports via [behave-modern-console-report](https://github.com/MathiasPaulenko/behave-modern-console-report) |
+| `report-sheets` | Spreadsheet reports via [behave-modern-sheets-report](https://github.com/MathiasPaulenko/behave-modern-sheets-report) |
+| `report-file` | File reports via [behave-modern-file-report](https://github.com/MathiasPaulenko/behave-modern-file-report) |
+| `record` | Browser recording via [wavexis](https://github.com/MathiasPaulenko/wavexis) |
 
 Install one or more extras with brackets:
 

@@ -5,8 +5,8 @@ Format feature files automatically.
 ## Description
 
 `format` delegates to `behave-format`. You can preview changes with
-`--diff`, check formatting without modifying files with `--check`, or
-modify files in place with `--in-place`.
+`--diff` or check formatting without modifying files with `--check`.
+Any additional arguments are forwarded to `behave-format`.
 
 ## Usage
 
@@ -20,20 +20,19 @@ behave-runner format [OPTIONS] [ARGS]...
 | ------ | ------ | --------- | ------------- |
 | `--check` | BOOLEAN | `False` | Check only, do not modify files. |
 | `--diff` | BOOLEAN | `False` | Show diff of changes. |
-| `--in-place` | BOOLEAN | `False` | Modify files in place. |
 | `[ARGS]...` | TEXT | None | Arguments to pass to `behave-format`. |
 
 ## Examples
 
 ```bash
-# Format all feature files in place
-behave-runner format --in-place
-
 # Check formatting without modifying
 behave-runner format --check
 
 # Show diff of proposed changes
 behave-runner format --diff
+
+# Pass extra arguments to behave-format
+behave-runner format --in-place features/
 ```
 
 ## Dependencies

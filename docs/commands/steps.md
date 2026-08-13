@@ -4,8 +4,8 @@ Manage step libraries.
 
 ## Description
 
-`steps` delegates to `behave-steplib`. It lists, searches, and installs
-step libraries that provide reusable step definitions.
+`steps` delegates to `behave-steplib`. It lists, shows, searches, validates,
+and installs step libraries that provide reusable step definitions.
 
 ## Usage
 
@@ -23,16 +23,18 @@ behave-runner steps list [ARGS]...
 
 List available step libraries.
 
-### steps install
+### steps show
 
 ```bash
-behave-runner steps install NAME [ARGS]...
+behave-runner steps show PATTERN [ARGS]...
 ```
 
 | Argument | Type | Default | Description |
 | --- | --- | --- | --- |
-| `NAME` | TEXT | required | Step library name to install. |
+| `PATTERN` | TEXT | required | Step pattern to show. |
 | `[ARGS]...` | TEXT | None | Additional arguments. |
+
+Show details for a specific step pattern.
 
 ### steps search
 
@@ -43,6 +45,35 @@ behave-runner steps search QUERY [ARGS]...
 | Argument | Type | Default | Description |
 | --- | --- | --- | --- |
 | `QUERY` | TEXT | required | Search query. |
+| `[ARGS]...` | TEXT | None | Additional arguments. |
+
+Search for step libraries by partial pattern.
+
+### steps validate
+
+```bash
+behave-runner steps validate [ARGS]...
+```
+
+Validate step contracts.
+
+### steps init
+
+```bash
+behave-runner steps init [ARGS]...
+```
+
+Generate `features/environment.py` with autoload wiring.
+
+### steps install
+
+```bash
+behave-runner steps install NAME [ARGS]...
+```
+
+| Argument | Type | Default | Description |
+| --- | --- | --- | --- |
+| `NAME` | TEXT | required | Step library name to install. |
 | `[ARGS]...` | TEXT | None | Additional arguments. |
 
 ## Examples
@@ -56,6 +87,15 @@ behave-runner steps install http
 
 # Search for a step library
 behave-runner steps search auth
+
+# Show details for a specific step pattern
+behave-runner steps show "I send a POST request"
+
+# Validate step contracts
+behave-runner steps validate
+
+# Generate autoload environment.py
+behave-runner steps init
 ```
 
 ## Dependencies

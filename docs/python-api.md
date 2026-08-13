@@ -46,10 +46,14 @@ exit_code = run(config)
 
 ::: behave_runner.core.watcher
 
-### Exceptions
+### Feature parsing
 
-::: behave_runner.exceptions
+::: behave_runner.core.features
 
 ### Utilities
 
 ::: behave_runner.utils
+
+### Exceptions
+
+::: behave_runner.exceptions

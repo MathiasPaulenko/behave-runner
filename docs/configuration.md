@@ -30,6 +30,9 @@ timeout = 300
 | Key | Type | Description |
 | --- | ---- | ----------- |
 | `parallel` | integer | Default number of parallel workers. |
+| `parallel_scheme` | string | Parallel distribution scheme (e.g. `scenario`, `feature`). |
+| `parallel_balance` | string | Load balancing strategy (e.g. `lpt`, `round`). |
+| `parallel_timing_file` | string | Timing file path for LPT load balancing. |
 | `retries` | integer | Number of retries for failed scenarios. |
 | `format` | string | Default output format. |
 | `output` | string | Default output file path. |
@@ -121,6 +124,7 @@ behave-runner run --profile ci --format html features/
 !!! note "Current merge scope"
     The `run` command merges all supported config values from the profile:
     `features`, `tags`, `name`, `format`, `output`, `timeout`, `parallel`,
+    `parallel_scheme`, `parallel_balance`, `parallel_timing_file`,
     `retries`, `dry_run`, `stop_on_failure`, `scenario_timeout`,
     `priority_order`, `fail_fast`, `flaky_report`, `max_failures` (or
     `max_fail`), `smoke`, `shard`, `no_color`, `verbose`, `ui`, `debug`,
