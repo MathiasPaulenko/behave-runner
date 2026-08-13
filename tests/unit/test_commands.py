@@ -115,7 +115,7 @@ def test_watch_callback_runs_tests(tmp_path: Path, monkeypatch: pytest.MonkeyPat
 
     with patch("behave_runner.commands.watch.run") as mock_run:
         mock_run.return_value = 0
-        callback = _make_callback(["features"], [], None, False)
+        callback = _make_callback(["features"], [], None, {"ui": False})
         callback([Path("features/test.feature")])
         mock_run.assert_called_once()
         config = mock_run.call_args[0][0]
@@ -131,7 +131,7 @@ def test_watch_callback_with_pattern_filters_changes(
     from behave_runner.commands.watch import _make_callback
 
     with patch("behave_runner.commands.watch.run") as mock_run:
-        callback = _make_callback(["features"], [], "*.feature", False)
+        callback = _make_callback(["features"], [], "*.feature", {"ui": False})
         callback([Path("features/steps.py")])
         mock_run.assert_not_called()
 
@@ -142,7 +142,7 @@ def test_watch_callback_pattern_matches(tmp_path: Path, monkeypatch: pytest.Monk
 
     with patch("behave_runner.commands.watch.run") as mock_run:
         mock_run.return_value = 0
-        callback = _make_callback(["features"], [], "*.feature", False)
+        callback = _make_callback(["features"], [], "*.feature", {"ui": False})
         callback([Path("features/test.feature")])
         mock_run.assert_called_once()
 
@@ -153,7 +153,7 @@ def test_watch_callback_reports_failure(tmp_path: Path, monkeypatch: pytest.Monk
 
     with patch("behave_runner.commands.watch.run") as mock_run:
         mock_run.return_value = 1
-        callback = _make_callback(["features"], [], None, False)
+        callback = _make_callback(["features"], [], None, {"ui": False})
         callback([Path("features/test.feature")])
         mock_run.assert_called_once()
 
@@ -456,7 +456,7 @@ def test_impact_run_affected(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
     monkeypatch.chdir(tmp_path)
     mock_result = MagicMock()
     mock_result.returncode = 0
-    mock_result.stdout = "scenario1\nscenario2\n"
+    mock_result.stdout = '[{"scenario": "scenario1"}, {"scenario": "scenario2"}]'
     with (
         patch("behave_runner.commands.impact.check_optional", return_value=True),
         patch("subprocess.run", return_value=mock_result),
@@ -888,7 +888,7 @@ def test_impact_run_returns_worst_exit_code(
     monkeypatch.chdir(tmp_path)
     mock_result = MagicMock()
     mock_result.returncode = 0
-    mock_result.stdout = "scenario1\nscenario2\n"
+    mock_result.stdout = '[{"scenario": "scenario1"}, {"scenario": "scenario2"}]'
     with (
         patch("behave_runner.commands.impact.check_optional", return_value=True),
         patch("behave_runner.commands.impact.subprocess.run", return_value=mock_result),
@@ -911,6 +911,8 @@ def test_run_rejects_negative_parallel(tmp_path: Path, monkeypatch: pytest.Monke
 
 def test_run_flaky_report_requires_retries(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """run should warn and ignore --flaky-report without --retries."""
+    from unittest.mock import patch
+
     fixture_path = (
         Path(__file__).resolve().parent.parent.parent
         / "tests"
@@ -919,10 +921,11 @@ def test_run_flaky_report_requires_retries(tmp_path: Path, monkeypatch: pytest.M
         / "features"
     )
     monkeypatch.chdir(tmp_path)
-    result = runner.invoke(
-        app,
-        ["run", "--flaky-report", str(fixture_path)],
-    )
+    with patch("behave_runner.commands.run.run", return_value=0):
+        result = runner.invoke(
+            app,
+            ["run", "--flaky-report", str(fixture_path)],
+        )
     assert result.exit_code == 0
     assert "requires --retries" in result.stdout
 

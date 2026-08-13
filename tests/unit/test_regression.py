@@ -375,35 +375,36 @@ def test_format_value_handles_list() -> None:
     assert _format_value([]) == "[]"
 
 
-# --- Regression: --timeout and --max-failures not in behave command (invalid flags) ---
+# --- Regression: --timeout passed as native behave CLI flag, not env var ---
 
 
-def test_timeout_not_in_behave_command() -> None:
-    """Ensure --timeout is not added to behave command (behave doesn't support it)."""
+def test_timeout_in_behave_command() -> None:
+    """Ensure --timeout is passed to behave as a native CLI flag."""
     config = RunConfig(timeout=30)
     cmd = build_behave_command(config)
-    assert "--timeout" not in cmd
+    assert "--timeout" in cmd
+    assert "30" in cmd
 
 
 def test_max_failures_not_in_behave_command() -> None:
-    """Ensure --max-failures is not added to behave command (behave doesn't support it)."""
+    """Ensure --max-failures is not added to behave command (uses --stop instead)."""
     config = RunConfig(max_failures=3)
     cmd = build_behave_command(config)
     assert "--max-failures" not in cmd
 
 
-def test_timeout_passed_as_env_var() -> None:
-    """Ensure timeout is passed as BEHAVE_TIMEOUT env var."""
+def test_timeout_not_set_as_env_var() -> None:
+    """Ensure timeout is NOT passed as BEHAVE_TIMEOUT env var (uses CLI flag)."""
     config = RunConfig(timeout=30)
     env = _build_env(config)
-    assert env["BEHAVE_TIMEOUT"] == "30"
+    assert "BEHAVE_TIMEOUT" not in env
 
 
-def test_max_failures_passed_as_env_var() -> None:
-    """Ensure max_failures is passed as BEHAVE_MAX_FAILURES env var."""
+def test_max_failures_not_set_as_env_var() -> None:
+    """Ensure max_failures is NOT passed as BEHAVE_MAX_FAILURES env var (uses --stop)."""
     config = RunConfig(max_failures=5)
     env = _build_env(config)
-    assert env["BEHAVE_MAX_FAILURES"] == "5"
+    assert "BEHAVE_MAX_FAILURES" not in env
 
 
 def test_timeout_not_set_when_none() -> None:
@@ -423,8 +424,8 @@ def test_max_failures_not_set_when_none() -> None:
 # --- Regression: run() sets env vars in os.environ for external library subprocesses ---
 
 
-def test_run_sets_env_vars_in_os_environ(monkeypatch) -> None:
-    """Ensure run() sets BEHAVE_TIMEOUT in os.environ for subprocess."""
+def test_run_does_not_set_timeout_env_var(monkeypatch) -> None:
+    """Ensure run() does NOT set BEHAVE_TIMEOUT in os.environ (uses CLI flag now)."""
     import os as os_module
 
     from behave_runner.core import orchestrator
@@ -442,11 +443,7 @@ def test_run_sets_env_vars_in_os_environ(monkeypatch) -> None:
     monkeypatch.setattr(orchestrator.subprocess, "run", capture_env)
     monkeypatch.setattr(orchestrator, "check_optional", lambda *a: True)
     orchestrator.run(config)
-    assert captured["BEHAVE_TIMEOUT"] == "99"
-    # Ensure env var is restored after run
-    assert os_module.environ.get("BEHAVE_TIMEOUT") is None or (
-        os_module.environ["BEHAVE_TIMEOUT"] != "99"
-    )
+    assert captured["BEHAVE_TIMEOUT"] is None
 
 
 # --- Regression: load_config falls back to behave.ini when pyproject.toml has no section ---
@@ -509,6 +506,7 @@ def test_format_value_escapes_newlines_and_tabs() -> None:
 def test_profile_loads_parallel(tmp_path: Path, monkeypatch) -> None:
     """Ensure parallel is loaded from profile config."""
     import textwrap
+    from unittest.mock import patch
 
     from typer.testing import CliRunner
 
@@ -530,13 +528,17 @@ def test_profile_loads_parallel(tmp_path: Path, monkeypatch) -> None:
         / "minimal"
         / "features"
     )
-    result = cli_runner.invoke(app, ["run", "--profile", "ci", fixture_path])
+    with patch("behave_runner.commands.run.run", return_value=0) as mock_run:
+        result = cli_runner.invoke(app, ["run", "--profile", "ci", fixture_path])
     assert result.exit_code == 0
+    config = mock_run.call_args[0][0]
+    assert config.parallel == 4
 
 
 def test_profile_loads_dry_run(tmp_path: Path, monkeypatch) -> None:
     """Ensure dry_run is loaded from profile config."""
     import textwrap
+    from unittest.mock import patch
 
     from typer.testing import CliRunner
 
@@ -558,13 +560,17 @@ def test_profile_loads_dry_run(tmp_path: Path, monkeypatch) -> None:
         / "minimal"
         / "features"
     )
-    result = cli_runner.invoke(app, ["run", "--profile", "ci", fixture_path])
+    with patch("behave_runner.commands.run.run", return_value=0) as mock_run:
+        result = cli_runner.invoke(app, ["run", "--profile", "ci", fixture_path])
     assert result.exit_code == 0
+    config = mock_run.call_args[0][0]
+    assert config.dry_run is True
 
 
 def test_profile_loads_retries(tmp_path: Path, monkeypatch) -> None:
     """Ensure retries is loaded from profile config."""
     import textwrap
+    from unittest.mock import patch
 
     from typer.testing import CliRunner
 
@@ -586,13 +592,17 @@ def test_profile_loads_retries(tmp_path: Path, monkeypatch) -> None:
         / "minimal"
         / "features"
     )
-    result = cli_runner.invoke(app, ["run", "--profile", "ci", fixture_path])
+    with patch("behave_runner.commands.run.run", return_value=0) as mock_run:
+        result = cli_runner.invoke(app, ["run", "--profile", "ci", fixture_path])
     assert result.exit_code == 0
+    config = mock_run.call_args[0][0]
+    assert config.retries == 2
 
 
 def test_profile_loads_parallel_from_string(tmp_path: Path, monkeypatch) -> None:
     """Ensure string parallel values from profiles are coerced to int."""
     import textwrap
+    from unittest.mock import patch
 
     from typer.testing import CliRunner
 
@@ -614,13 +624,17 @@ def test_profile_loads_parallel_from_string(tmp_path: Path, monkeypatch) -> None
         / "minimal"
         / "features"
     )
-    result = cli_runner.invoke(app, ["run", "--profile", "ci", fixture_path])
+    with patch("behave_runner.commands.run.run", return_value=0) as mock_run:
+        result = cli_runner.invoke(app, ["run", "--profile", "ci", fixture_path])
     assert result.exit_code == 0
+    config = mock_run.call_args[0][0]
+    assert config.parallel == 4
 
 
 def test_profile_loads_dry_run_false_string(tmp_path: Path, monkeypatch) -> None:
     """Ensure string 'false' dry_run values do not enable dry-run."""
     import textwrap
+    from unittest.mock import patch
 
     from typer.testing import CliRunner
 
@@ -643,8 +657,11 @@ def test_profile_loads_dry_run_false_string(tmp_path: Path, monkeypatch) -> None
         / "minimal"
         / "features"
     )
-    result = cli_runner.invoke(app, ["run", "--profile", "ci", fixture_path])
+    with patch("behave_runner.commands.run.run", return_value=0) as mock_run:
+        result = cli_runner.invoke(app, ["run", "--profile", "ci", fixture_path])
     assert result.exit_code == 0
+    config = mock_run.call_args[0][0]
+    assert config.dry_run is False
 
 
 def test_config_show_exit_code_when_no_config(
@@ -698,9 +715,14 @@ def test_clean_output_dir_symlink_safety(tmp_path: Path) -> None:
 # --- Regression: collect_scenarios should not crash on malformed feature files ---
 
 
-def test_collect_scenarios_skips_malformed_features(tmp_path: Path) -> None:
+def test_collect_scenarios_skips_malformed_features(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Ensure malformed .feature files are skipped instead of crashing."""
     from behave_runner.core.features import collect_scenarios
+
+    # chdir to tmp_path so behave's parser doesn't fail on cross-drive relpath
+    monkeypatch.chdir(tmp_path)
 
     good = tmp_path / "good.feature"
     good.write_text("Feature: Good\n\n  Scenario: Example\n    Given a step\n")
@@ -718,6 +740,7 @@ def test_collect_scenarios_skips_malformed_features(tmp_path: Path) -> None:
 def test_smoke_with_profile_merges_tags(tmp_path: Path, monkeypatch) -> None:
     """--smoke should add @smoke to profile tags, not replace them."""
     import textwrap
+    from unittest.mock import patch
 
     from typer.testing import CliRunner
 
@@ -740,8 +763,12 @@ def test_smoke_with_profile_merges_tags(tmp_path: Path, monkeypatch) -> None:
         / "minimal"
         / "features"
     )
-    result = cli_runner.invoke(app, ["run", "--smoke", "--profile", "ci", fixture_path])
+    with patch("behave_runner.commands.run.run", return_value=0) as mock_run:
+        result = cli_runner.invoke(app, ["run", "--smoke", "--profile", "ci", fixture_path])
     assert result.exit_code == 0
+    config = mock_run.call_args[0][0]
+    assert "@smoke" in config.tags
+    assert "@fast" in config.tags
 
 
 # --- Regression: profile features should be used when no CLI features ---
@@ -750,6 +777,7 @@ def test_smoke_with_profile_merges_tags(tmp_path: Path, monkeypatch) -> None:
 def test_profile_features_used_when_no_cli_features(tmp_path: Path, monkeypatch) -> None:
     """Profile features should be used when no CLI features are provided."""
     import textwrap
+    from unittest.mock import patch
 
     from typer.testing import CliRunner
 
@@ -772,8 +800,13 @@ def test_profile_features_used_when_no_cli_features(tmp_path: Path, monkeypatch)
     monkeypatch.chdir(tmp_path)
 
     cli_runner = CliRunner()
-    result = cli_runner.invoke(app, ["run", "--profile", "ci"])
+    with patch("behave_runner.commands.run.run", return_value=0) as mock_run:
+        result = cli_runner.invoke(app, ["run", "--profile", "ci"])
     assert result.exit_code == 0
+    config = mock_run.call_args[0][0]
+    assert fixture_path in config.features or any(
+        Path(f).as_posix() == fixture_path for f in config.features
+    )
 
 
 # --- Regression: profile name should be loaded ---
@@ -782,6 +815,7 @@ def test_profile_features_used_when_no_cli_features(tmp_path: Path, monkeypatch)
 def test_profile_name_loaded(tmp_path: Path, monkeypatch) -> None:
     """Profile name filter should be loaded and applied."""
     import textwrap
+    from unittest.mock import patch
 
     from typer.testing import CliRunner
 
@@ -805,9 +839,11 @@ def test_profile_name_loaded(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
 
     cli_runner = CliRunner()
-    result = cli_runner.invoke(app, ["run", "--profile", "ci"])
-    # behave returns 0 even when no scenarios match with --dry-run
+    with patch("behave_runner.commands.run.run", return_value=0) as mock_run:
+        result = cli_runner.invoke(app, ["run", "--profile", "ci"])
     assert result.exit_code == 0
+    config = mock_run.call_args[0][0]
+    assert "Nonexistent scenario" in config.name
 
 
 # --- Regression: profile shard should be validated ---
@@ -1039,6 +1075,7 @@ def test_clean_output_dir_handles_unlink_os_error(
 def test_flaky_report_with_profile_retries_zero(tmp_path: Path, monkeypatch) -> None:
     """--flaky-report with profile retries=0 should disable flaky_report."""
     import textwrap
+    from unittest.mock import patch
 
     from typer.testing import CliRunner
 
@@ -1063,7 +1100,8 @@ def test_flaky_report_with_profile_retries_zero(tmp_path: Path, monkeypatch) -> 
     monkeypatch.chdir(tmp_path)
 
     cli_runner = CliRunner()
-    result = cli_runner.invoke(app, ["run", "--flaky-report", "--profile", "ci"])
+    with patch("behave_runner.commands.run.run", return_value=0):
+        result = cli_runner.invoke(app, ["run", "--flaky-report", "--profile", "ci"])
     assert result.exit_code == 0
     assert "requires --retries" in result.stdout
 
@@ -1100,6 +1138,7 @@ def test_load_config_behave_runner_not_dict(tmp_path: Path) -> None:
 def test_profile_max_fail_key_loaded(tmp_path: Path, monkeypatch) -> None:
     """Profile max_fail key should be used as fallback for max_failures."""
     import textwrap
+    from unittest.mock import patch
 
     from typer.testing import CliRunner
 
@@ -1123,8 +1162,11 @@ def test_profile_max_fail_key_loaded(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
 
     cli_runner = CliRunner()
-    result = cli_runner.invoke(app, ["run", "--profile", "ci"])
+    with patch("behave_runner.commands.run.run", return_value=0) as mock_run:
+        result = cli_runner.invoke(app, ["run", "--profile", "ci"])
     assert result.exit_code == 0
+    config = mock_run.call_args[0][0]
+    assert config.max_failures == 3
 
 
 # --- Regression: profile smoke key should add @smoke tag ---
@@ -1133,6 +1175,7 @@ def test_profile_max_fail_key_loaded(tmp_path: Path, monkeypatch) -> None:
 def test_profile_smoke_adds_smoke_tag(tmp_path: Path, monkeypatch) -> None:
     """Profile smoke=true should add @smoke tag filter."""
     import textwrap
+    from unittest.mock import patch
 
     from typer.testing import CliRunner
 
@@ -1156,9 +1199,11 @@ def test_profile_smoke_adds_smoke_tag(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
 
     cli_runner = CliRunner()
-    result = cli_runner.invoke(app, ["run", "--profile", "ci"])
-    # No @smoke scenarios in minimal fixture, but behave --dry-run returns 0
+    with patch("behave_runner.commands.run.run", return_value=0) as mock_run:
+        result = cli_runner.invoke(app, ["run", "--profile", "ci"])
     assert result.exit_code == 0
+    config = mock_run.call_args[0][0]
+    assert "@smoke" in config.tags
 
 
 # --- Regression: _set_config_value should not corrupt TOML with dotted keys ---
