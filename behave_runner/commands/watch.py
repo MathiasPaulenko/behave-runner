@@ -27,7 +27,7 @@ def _make_callback(
     feature_paths: list[str],
     tags: list[str],
     pattern: str | None,
-    use_ui: bool,
+    config_overrides: dict[str, object],
 ) -> Callable[[list[Path]], None]:
     """Create a callback that re-runs tests on file changes."""
 
@@ -41,7 +41,7 @@ def _make_callback(
         config = RunConfig(
             features=feature_paths,
             tags=tags,
-            ui=use_ui,
+            **config_overrides,  # type: ignore[arg-type]
         )
         exit_code = run(config)
         if exit_code == 0:
@@ -62,7 +62,28 @@ def watch_command(
     pattern: str | None = typer.Option(
         None, "--pattern", help="Glob pattern to filter watched files."
     ),
+    profile: str | None = typer.Option(
+        None, "--profile", help="Load a configuration profile from pyproject.toml."
+    ),
+    retries: int | None = typer.Option(
+        None, "--retries", help="Number of retries for failed scenarios."
+    ),
+    parallel: int | None = typer.Option(
+        None, "--parallel", "-n", help="Number of parallel processes."
+    ),
+    fmt: str | None = typer.Option(None, "--format", help="Output format."),
     ui: bool = typer.Option(False, "--ui", help="Use behave-trace UI mode if available."),
+    debug: bool = typer.Option(False, "--debug", help="Enable debug tracing."),
+    trace: bool = typer.Option(False, "--trace", help="Enable trace viewer."),
+    priority_order: bool = typer.Option(
+        False, "--priority-order", help="Run scenarios in priority order."
+    ),
+    fail_fast: bool = typer.Option(
+        False, "--fail-fast", help="Stop on first failure with priority."
+    ),
+    scenario_timeout: int | None = typer.Option(
+        None, "--scenario-timeout", help="Per-scenario timeout in seconds."
+    ),
 ) -> None:
     """Watch for file changes and re-run tests automatically."""
     if debounce < 0:
@@ -73,7 +94,42 @@ def watch_command(
     watch_paths = [Path(p) for p in feature_paths]
     watch_paths.extend(p for p in _DEFAULT_PATHS if p not in watch_paths)
 
-    on_change = _make_callback(feature_paths, tags, pattern, ui)
+    # Build config overrides from CLI options (and optionally profile)
+    config_overrides: dict[str, object] = {
+        "ui": ui,
+        "debug": debug,
+        "trace": trace,
+        "priority_order": priority_order,
+        "fail_fast": fail_fast,
+    }
+    if retries is not None:
+        config_overrides["retries"] = retries
+    if parallel is not None:
+        config_overrides["parallel"] = parallel
+    if fmt is not None:
+        config_overrides["fmt"] = fmt
+    if scenario_timeout is not None:
+        config_overrides["scenario_timeout"] = scenario_timeout
+
+    if profile is not None:
+        from behave_runner.core.config import load_profile
+        from behave_runner.exceptions import ConfigError
+
+        try:
+            profile_config = load_profile(profile)
+        except ConfigError as e:
+            console.print(f"[red]Error: {e}[/red]")
+            raise typer.Exit(2) from e
+
+        # Merge profile values (CLI takes priority)
+        for key in ("retries", "parallel", "fmt", "scenario_timeout"):
+            if key not in config_overrides and key in profile_config:
+                config_overrides[key] = profile_config[key]
+        for key in ("ui", "debug", "trace", "priority_order", "fail_fast"):
+            if key in profile_config and profile_config[key]:
+                config_overrides[key] = True
+
+    on_change = _make_callback(feature_paths, tags, pattern, config_overrides)
     watcher = FileWatcher(watch_paths, on_change, debounce_ms=debounce)
 
     console.print("[cyan]Watching for changes... (Ctrl+C to stop)[/cyan]")

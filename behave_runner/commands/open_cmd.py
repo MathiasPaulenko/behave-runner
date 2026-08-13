@@ -48,9 +48,25 @@ def _open_trace() -> None:
     if not check_optional("trace", "behave_trace", "trace"):
         raise typer.Exit(2)
 
+    # Search for trace.json in common locations
+    trace_candidates = [
+        Path("reports") / "trace.json",
+        Path("trace.json"),
+        Path("output") / "trace.json",
+    ]
+    trace_file = next((p for p in trace_candidates if p.exists()), None)
+
+    cmd = ["behave-trace", "show"]
+    if trace_file is not None:
+        cmd.append(str(trace_file))
+    else:
+        console.print(
+            "[yellow]Warning: trace.json not found. Run with --trace to generate one.[/yellow]"
+        )
+
     try:
         result = subprocess.run(  # noqa: S603  # nosec
-            ["behave-trace", "show"],
+            cmd,
             check=False,
         )
         raise typer.Exit(result.returncode)

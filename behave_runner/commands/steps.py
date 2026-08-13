@@ -18,8 +18,8 @@ steps_app = typer.Typer(
 )
 
 
-def _run_behave_steplib(cmd: list[str]) -> None:
-    """Delegate to behave-steplib via subprocess."""
+def _run_steplib(cmd: list[str]) -> None:
+    """Delegate to steplib via subprocess."""
     if not check_optional("steplib", "behave_steplib", "steps"):
         raise typer.Exit(2)
 
@@ -28,11 +28,11 @@ def _run_behave_steplib(cmd: list[str]) -> None:
         raise typer.Exit(result.returncode)
     except FileNotFoundError:
         console.print(
-            "[red]Error: behave-steplib not found. Install with: pip install behave-steplib[/red]"
+            "[red]Error: steplib not found. Install with: pip install behave-steplib[/red]"
         )
         raise typer.Exit(2) from None
     except OSError as e:
-        console.print(f"[red]Error running behave-steplib: {e}[/red]")
+        console.print(f"[red]Error running steplib: {e}[/red]")
         raise typer.Exit(2) from None
 
 
@@ -41,16 +41,16 @@ def steps_list(
     args: list[str] = typer.Argument(None, help="Additional arguments."),
 ) -> None:
     """List available step libraries."""
-    _run_behave_steplib(["behave-steplib", "list", *(args or [])])
+    _run_steplib(["steplib", "list", *(args or [])])
 
 
-@steps_app.command(name="install")
-def steps_install(
-    name: str = typer.Argument(..., help="Step library name to install."),
+@steps_app.command(name="show")
+def steps_show(
+    pattern: str = typer.Argument(..., help="Step pattern to show."),
     args: list[str] = typer.Argument(None, help="Additional arguments."),
 ) -> None:
-    """Install a step library."""
-    _run_behave_steplib(["behave-steplib", "install", name, *(args or [])])
+    """Show details for a specific step pattern."""
+    _run_steplib(["steplib", "show", pattern, *(args or [])])
 
 
 @steps_app.command(name="search")
@@ -58,5 +58,30 @@ def steps_search(
     query: str = typer.Argument(..., help="Search query."),
     args: list[str] = typer.Argument(None, help="Additional arguments."),
 ) -> None:
-    """Search for step libraries."""
-    _run_behave_steplib(["behave-steplib", "search", query, *(args or [])])
+    """Search for step libraries by partial pattern."""
+    _run_steplib(["steplib", "search", query, *(args or [])])
+
+
+@steps_app.command(name="validate")
+def steps_validate(
+    args: list[str] = typer.Argument(None, help="Additional arguments."),
+) -> None:
+    """Validate step contracts."""
+    _run_steplib(["steplib", "validate", *(args or [])])
+
+
+@steps_app.command(name="init")
+def steps_init(
+    args: list[str] = typer.Argument(None, help="Additional arguments."),
+) -> None:
+    """Generate features/environment.py with autoload wiring."""
+    _run_steplib(["steplib", "init", *(args or [])])
+
+
+@steps_app.command(name="install")
+def steps_install(
+    name: str = typer.Argument(..., help="Step library extra to install (e.g. api, web, db)."),
+    args: list[str] = typer.Argument(None, help="Additional arguments."),
+) -> None:
+    """Show pip install command for a step library extra."""
+    _run_steplib(["steplib", "install", name, *(args or [])])

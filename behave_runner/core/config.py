@@ -32,6 +32,9 @@ _BOOL_KEYS = {
     "trace",
 }
 
+# String keys that pass through without normalization (in addition to
+# fmt, outfile, shard, format, output which are handled as raw strings).
+# parallel_scheme, parallel_balance, parallel_timing_file are strings.
 _LIST_KEYS = {"tags", "features", "name"}
 
 

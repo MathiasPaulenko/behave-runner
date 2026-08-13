@@ -50,13 +50,15 @@ def main(
     pass
 
 
+_PASSTHROUGH_CTX = {"allow_extra_args": True, "ignore_unknown_options": True}
+
 app.command(name="run")(run_command)
 app.command(name="select")(select_command)
 app.command(name="list")(list_command)
-app.command(name="format")(format_command)
-app.command(name="lint")(lint_command)
-app.command(name="doctor")(doctor_command)
-app.command(name="init")(init_command)
+app.command(name="format", context_settings=_PASSTHROUGH_CTX)(format_command)
+app.command(name="lint", context_settings=_PASSTHROUGH_CTX)(lint_command)
+app.command(name="doctor", context_settings=_PASSTHROUGH_CTX)(doctor_command)
+app.command(name="init", context_settings=_PASSTHROUGH_CTX)(init_command)
 app.add_typer(report_app, name="report")
 app.add_typer(generate_app, name="generate")
 app.add_typer(trace_app, name="trace")

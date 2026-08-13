@@ -36,6 +36,15 @@ def run_command(
     shard: str | None = typer.Option(
         None, "--shard", help="Shard to run in CI (format: i/n, e.g. 1/3)."
     ),
+    parallel_scheme: str | None = typer.Option(
+        None, "--parallel-scheme", help="Parallel distribution scheme (e.g. scenario, feature)."
+    ),
+    parallel_balance: str | None = typer.Option(
+        None, "--parallel-balance", help="Load balancing strategy (e.g. lpt, round)."
+    ),
+    parallel_timing_file: str | None = typer.Option(
+        None, "--parallel-timing-file", help="Timing file for LPT load balancing."
+    ),
     retries: int | None = typer.Option(
         None, "--retries", help="Number of retries for failed scenarios (uses behave-retry)."
     ),
@@ -128,6 +137,17 @@ def run_command(
     p_output = output if output is not None else profile_config.get("output")
     p_timeout = timeout if timeout is not None else profile_config.get("timeout")
     p_parallel = parallel if parallel is not None else profile_config.get("parallel")
+    p_parallel_scheme = (
+        parallel_scheme if parallel_scheme is not None else profile_config.get("parallel_scheme")
+    )
+    p_parallel_balance = (
+        parallel_balance if parallel_balance is not None else profile_config.get("parallel_balance")
+    )
+    p_parallel_timing_file = (
+        parallel_timing_file
+        if parallel_timing_file is not None
+        else profile_config.get("parallel_timing_file")
+    )
     p_retries = retries if retries is not None else profile_config.get("retries")
     p_dry_run = dry_run or profile_config.get("dry_run", False)
     p_stop = stop_on_failure or profile_config.get("stop_on_failure", False)
@@ -169,6 +189,9 @@ def run_command(
             verbose=p_verbose,
             parallel=p_parallel,
             shard=p_shard,
+            parallel_scheme=p_parallel_scheme,
+            parallel_balance=p_parallel_balance,
+            parallel_timing_file=p_parallel_timing_file,
             retries=p_retries,
             flaky_report=p_flaky,
             priority_order=p_priority,

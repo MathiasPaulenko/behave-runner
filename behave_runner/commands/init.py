@@ -13,19 +13,17 @@ console = Console()
 
 
 def init_command(
-    name: str | None = typer.Option(
-        None, "--name", help="Project name for the generated structure."
-    ),
+    ctx: typer.Context,
+    name: str = typer.Option(..., "--name", help="Project name for the generated structure."),
     args: list[str] = typer.Argument(None, help="Additional arguments for behave-gen."),
 ) -> None:
     """Initialize a new behave project structure using behave-gen."""
     if not check_optional("gen", "behave_gen", "init"):
         raise typer.Exit(2)
 
-    cmd = ["behave-gen", "init"]
-    if name:
-        cmd.extend(["--name", name])
+    cmd = ["behave-gen", "init", name]
     cmd.extend(args or [])
+    cmd.extend(ctx.args)
 
     try:
         result = subprocess.run(cmd, check=False)  # noqa: S603  # nosec B603

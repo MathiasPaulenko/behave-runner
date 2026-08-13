@@ -58,15 +58,15 @@ def report_command(
         ensure_output_dir(output)
 
     # Build the output file path from the output directory and format
+    # Console formatter outputs to terminal — no outfile needed
     outfile = None
-    if output is not None:
+    if output is not None and fmt != "console":
         extensions = {
             "json": "report.json",
             "html": "report.html",
             "md": "report.md",
             "sheets": "report.xlsx",
             "file": "report.txt",
-            "console": "report.txt",
         }
         outfile = str(output / extensions.get(fmt, "report.txt"))
 

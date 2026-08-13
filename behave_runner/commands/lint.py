@@ -13,6 +13,7 @@ console = Console()
 
 
 def lint_command(
+    ctx: typer.Context,
     args: list[str] = typer.Argument(None, help="Arguments to pass to behave-lint."),
 ) -> None:
     """Run behave-lint static analysis on features."""
@@ -20,6 +21,7 @@ def lint_command(
         raise typer.Exit(2)
 
     cmd = [*args] if args else []
+    cmd.extend(ctx.args)
     try:
         result = subprocess.run(["behave-lint", *cmd], check=False)  # noqa: S603  # nosec
         raise typer.Exit(result.returncode)

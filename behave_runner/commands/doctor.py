@@ -13,13 +13,15 @@ console = Console()
 
 
 def doctor_command(
+    ctx: typer.Context,
     args: list[str] = typer.Argument(None, help="Arguments to pass to behave-doctor."),
 ) -> None:
     """Run behave-doctor to diagnose and fix common issues."""
     if not check_optional("doctor", "behave_doctor", "doctor"):
         raise typer.Exit(2)
 
-    cmd = ["behave-doctor", *(args or [])]
+    all_args = (args or []) + ctx.args
+    cmd = ["behave-doctor", *all_args]
     try:
         result = subprocess.run(cmd, check=False)  # noqa: S603  # nosec B603
         raise typer.Exit(result.returncode)

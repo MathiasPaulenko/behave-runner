@@ -23,7 +23,7 @@ def check_optional(feature: str, package: str, flag: str) -> bool:
     if is_installed(package):
         return True
     console.print(
-        f"[yellow]Warning: --{flag} requires {package}. "
+        f"[yellow]Warning: {flag} requires {package}. "
         f"Install with: pip install behave-runner[{feature}][/yellow]"
     )
     return False
