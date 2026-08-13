@@ -63,7 +63,7 @@ jobs:
         run: bandit -r behave_runner -c pyproject.toml
 
       - name: Pip-audit
-        run: pip-audit --desc
+        run: pip-audit --strict --desc
 
   test:
     name: Test (Python ${{ matrix.python-version }} on ${{ matrix.os }})

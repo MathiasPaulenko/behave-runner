@@ -29,6 +29,7 @@ ref/
 Thumbs.db
 
 # Generated reports (from behave-runner report generate)
+reports/
 report.xlsx
 report.json
 report.html
