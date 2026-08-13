@@ -1,0 +1,3 @@
+[tool.behave-runner.profiles.ci]
+tags = ["@smoke"]
+dry_run = true
