@@ -9,19 +9,44 @@ from dataclasses import dataclass, field
 
 from rich.console import Console
 
-from behave_runner.core.deps import check_optional
+from behave_runner.core.deps import check_optional, is_installed
 
 console = Console()
 
-# Map report format names to their behave formatter class paths.
-# Behave accepts the format "package:ClassName" for --format.
+
+def _is_package_functional(package: str) -> bool:
+    """Check if a package is installed with real code, not just an empty namespace.
+
+    Some packages (e.g. behave-pool) may be installed as empty namespace
+    packages with only a ``py.typed`` marker. This function verifies that
+    the package contains at least one ``.py`` file in its path.
+    """
+    if not is_installed(package):
+        return False
+    mod = sys.modules.get(package)
+    if mod is None:
+        try:
+            import importlib
+
+            mod = importlib.import_module(package)
+        except ImportError:
+            return False
+    paths = list(getattr(mod, "__path__", []))
+    if not paths:
+        return False
+    return any(os.path.isdir(p) and any(f.endswith(".py") for f in os.listdir(p)) for p in paths)
+
+
+# Map report format names to their behave formatter scoped names (module:Class).
+# Behave 1.2.6 resolves these via load_formatter_class() — it does NOT load
+# entry points from importlib.metadata, so we must use scoped names.
 _REPORT_FORMATTERS: dict[str, str] = {
-    "console": "behave_modern_console_report:ModernFormatter",
-    "json": "behave_modern_json_report:ModernJSONFormatter",
-    "md": "behave_modern_md_report:BehaveMarkdownFormatter",
-    "html": "behave_modern_html_report:ModernHTMLFormatter",
-    "sheets": "behave_modern_sheets_report:XLSXFormatter",
-    "file": "behave_modern_file_report:TXTFormatter",
+    "console": "behave_modern_console_report.formatters.modern:ModernFormatter",
+    "json": "behave_modern_json_report.formatter:ModernJSONFormatter",
+    "md": "behave_modern_md_report.formatter:BehaveMarkdownFormatter",
+    "html": "behave_modern_html_report.formatter:ModernHTMLFormatter",
+    "sheets": "behave_modern_sheets_report.xlsx_formatter:XLSXFormatter",
+    "file": "behave_modern_file_report.docx_formatter:DOCXFormatter",
 }
 
 # Map report format names to their importable package (for dependency check).
@@ -62,6 +87,9 @@ class RunConfig:
     verbose: bool = False
     parallel: int | None = None
     shard: str | None = None
+    parallel_scheme: str | None = None
+    parallel_balance: str | None = None
+    parallel_timing_file: str | None = None
     retries: int | None = None
     flaky_report: bool = False
     priority_order: bool = False
@@ -106,7 +134,14 @@ class RunConfig:
             if not isinstance(getattr(self, field_name), bool):
                 raise ValueError(f"RunConfig.{field_name} must be a boolean")
 
-        for field_name in ("fmt", "outfile", "shard"):
+        for field_name in (
+            "fmt",
+            "outfile",
+            "shard",
+            "parallel_scheme",
+            "parallel_balance",
+            "parallel_timing_file",
+        ):
             value = getattr(self, field_name)
             if value is not None and not isinstance(value, str):
                 raise ValueError(f"RunConfig.{field_name} must be a string or None")
@@ -137,6 +172,10 @@ def build_behave_command(config: RunConfig) -> list[str]:
         cmd.append("--dry-run")
     if config.stop_on_failure:
         cmd.append("--stop")
+    if config.max_failures is not None and config.max_failures > 0:
+        cmd.extend(["--stop"])
+    if config.timeout is not None and config.timeout > 0:
+        cmd.extend(["--timeout", str(config.timeout)])
     for name in config.name:
         cmd.extend(["--name", name])
     if config.no_color:
@@ -144,15 +183,44 @@ def build_behave_command(config: RunConfig) -> list[str]:
     if config.verbose:
         cmd.append("--verbose")
 
-    # Parallel: behave has native --parallel support
+    # Parallel: pass --parallel and related flags to behave.
+    # Behave 1.2.6 does not support --parallel natively; it requires
+    # behave-pool to register the flag. Only pass it when behave-pool
+    # is actually installed with real code (not just an empty namespace).
     if config.parallel is not None and config.parallel > 1:
-        cmd.extend(["--parallel", str(config.parallel)])
+        if _is_package_functional("behave_pool"):
+            cmd.extend(["--parallel", str(config.parallel)])
+            if config.parallel_scheme is not None:
+                cmd.extend(["--parallel-scheme", config.parallel_scheme])
+            if config.parallel_balance is not None:
+                cmd.extend(["--parallel-balance", config.parallel_balance])
+            if config.parallel_timing_file is not None:
+                cmd.extend(["--parallel-timing-file", config.parallel_timing_file])
+        else:
+            import warnings
+
+            warnings.warn(
+                f"--parallel requires behave-pool to be installed; "
+                f"ignoring --parallel={config.parallel}.",
+                stacklevel=2,
+            )
+
+    # Shard: passed via BEHAVE_POOL_SHARD env var (set in _behave_env_vars),
+    # not as a CLI flag — behave does not support --shard natively.
 
     # Format: either a report formatter or a behave built-in
+    # Only use the entry point name if the package is installed;
+    # otherwise fall back to behave's built-in formats.
     if config.fmt is not None:
         formatter = _resolve_formatter(config.fmt)
-        if formatter is not None:
-            cmd.extend(["--format", formatter])
+        fmt_package = _REPORT_PACKAGES.get(config.fmt)
+        if formatter is not None and fmt_package is not None:
+            if is_installed(fmt_package):
+                cmd.extend(["--format", formatter])
+            else:
+                # Package not installed — pass through the raw name
+                # in case behave has a built-in with this name
+                cmd.extend(["--format", config.fmt])
         else:
             # Pass through as-is for behave built-in formats (plain, json, etc.)
             cmd.extend(["--format", config.fmt])
@@ -162,7 +230,8 @@ def build_behave_command(config: RunConfig) -> list[str]:
         cmd.extend(["--outfile", config.outfile])
 
     # Trace formatter: add as a second formatter alongside any report format
-    if config.trace or config.ui or config.debug:
+    # Only when behave-trace is installed (graceful degradation otherwise)
+    if (config.trace or config.ui or config.debug) and is_installed("behave_trace"):
         cmd.extend(["--format", "behave_trace:TraceFormatter"])
 
     return cmd
@@ -195,10 +264,8 @@ def _behave_env_vars(config: RunConfig) -> dict[str, str]:
     env: dict[str, str] = {}
     if config.scenario_timeout is not None:
         env["BEHAVE_SCENARIO_TIMEOUT"] = str(config.scenario_timeout)
-    if config.timeout is not None:
-        env["BEHAVE_TIMEOUT"] = str(config.timeout)
-    if config.max_failures is not None:
-        env["BEHAVE_MAX_FAILURES"] = str(config.max_failures)
+    # Note: --timeout and --stop are passed as native behave CLI flags
+    # in build_behave_command, not as env vars (no library reads them).
     if config.retries is not None and config.retries > 0:
         env["BEHAVE_RETRY_MAX_RETRIES"] = str(config.retries)
     if config.flaky_report:
@@ -248,15 +315,11 @@ def run(config: RunConfig) -> int:
     priority) are passed to behave via command-line flags and environment
     variables. Behave handles them natively or via installed packages.
     """
-    # Check report formatter dependency if a report format is requested
-    if config.fmt is not None and not _check_report_dependency(config.fmt):
-        return 2
+    # Report formatter dependency is checked inside build_behave_command
+    # via is_installed() — degrades gracefully to behave built-in formats.
 
-    # Check trace dependency if trace/ui/debug is requested
-    if (config.trace or config.ui or config.debug) and not check_optional(
-        "trace", "behave_trace", "trace"
-    ):
-        return 2
+    # Trace dependency is checked inside build_behave_command
+    # via is_installed() — degrades gracefully when behave-trace is not installed.
 
     behave_vars = _behave_env_vars(config)
     saved = {k: os.environ.get(k) for k in behave_vars}
