@@ -2270,4 +2270,4 @@ def test_init_all_exports_version() -> None:
 
     assert hasattr(behave_runner, "__all__")
     assert "__version__" in behave_runner.__all__
-    assert behave_runner.__version__ == "1.2.0"
+    assert behave_runner.__version__ == "1.3.0"

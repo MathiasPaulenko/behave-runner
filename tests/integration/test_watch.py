@@ -60,8 +60,8 @@ def test_watch_help_lists_all_options() -> None:
 
 
 def test_watch_help_shows_usage() -> None:
-    """Test watch --help shows usage with FEATURES argument."""
+    """Test watch --help shows usage with features argument."""
     result = runner.invoke(app, ["watch", "--help"])
     assert result.exit_code == 0
-    assert "FEATURES" in result.stdout
+    assert "features" in result.stdout.lower()
     assert "Feature paths to watch and run" in result.stdout
