@@ -96,7 +96,7 @@ def test_generate_feature_missing_name() -> None:
     """Test generate feature without name exits with code 2."""
     result = runner.invoke(app, ["generate", "feature"])
     assert result.exit_code == 2
-    assert "Missing argument 'NAME'" in result.output
+    assert "missing argument 'name'" in result.output.lower()
 
 
 def test_generate_without_dep() -> None:
