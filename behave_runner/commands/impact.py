@@ -9,7 +9,7 @@ import subprocess  # nosec B404
 import typer
 from rich.console import Console
 
-from behave_runner.core.deps import check_optional
+from behave_runner.core.deps import check_optional, resolve_executable
 from behave_runner.core.orchestrator import RunConfig, run
 
 console = Console()
@@ -37,7 +37,7 @@ def impact_command(
 
     # When --run is used, always request JSON internally for reliable parsing
     internal_fmt = "json" if run_affected else fmt
-    cmd = ["behave-doctor", "scan", "--format", internal_fmt, path]
+    cmd = [resolve_executable("behave-doctor"), "scan", "--format", internal_fmt, path]
 
     try:
         result = subprocess.run(  # noqa: S603  # nosec B603

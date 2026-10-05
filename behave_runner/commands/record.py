@@ -8,7 +8,7 @@ from pathlib import Path
 import typer
 from rich.console import Console
 
-from behave_runner.core.deps import check_optional, run_external
+from behave_runner.core.deps import check_optional, resolve_executable, run_external
 
 console = Console()
 
@@ -44,7 +44,7 @@ def record_command(
 
     console.print(f"[cyan]Starting wavexis recording -> {recording_path}[/cyan]")
     cmd = [
-        "wavexis",
+        resolve_executable("wavexis"),
         "record",
         url,
         "--output",

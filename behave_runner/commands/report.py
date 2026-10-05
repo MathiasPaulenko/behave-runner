@@ -33,7 +33,7 @@ def report_command(
     output: Path | None = typer.Option(
         None,
         "--output",
-        help="Output directory for reports.",
+        help="Output directory for reports (default: reports/ for non-console formats).",
         file_okay=False,
         dir_okay=True,
     ),
@@ -50,6 +50,11 @@ def report_command(
             f"[red]Unknown format: '{fmt}'. Choose from: {', '.join(sorted(valid_formats))}[/red]"
         )
         raise typer.Exit(2)
+
+    # Non-console formats write to reports/ by default so that
+    # `report show` / `open` find them without extra flags.
+    if output is None and fmt != "console":
+        output = Path("reports")
 
     if output is not None:
         ensure_output_dir(output)

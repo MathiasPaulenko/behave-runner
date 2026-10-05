@@ -48,6 +48,7 @@ def collect_scenarios(
             elif fp.is_file() and fp.suffix == ".feature":
                 feature_files = [fp]
             else:
+                logger.warning("Skipping %s: not a .feature file or directory", fp)
                 continue
         except OSError as e:
             logger.warning("Skipping %s: %s", fp, e)

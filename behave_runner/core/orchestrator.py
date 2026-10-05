@@ -176,6 +176,15 @@ def build_behave_command(config: RunConfig) -> list[str]:
     if config.stop_on_failure:
         cmd.append("--stop")
     if config.max_failures is not None and config.max_failures > 0:
+        # behave has no --max-fail flag; it can only stop at the first
+        # failure. Any value >= 1 maps to --stop, so warn when the user
+        # asked for a higher threshold.
+        if config.max_failures > 1:
+            warnings.warn(
+                f"behave does not support --max-fail={config.max_failures}; "
+                f"stopping at the first failure instead.",
+                stacklevel=2,
+            )
         cmd.extend(["--stop"])
     if config.timeout is not None:
         cmd.extend(["--timeout", str(config.timeout)])
@@ -231,9 +240,17 @@ def build_behave_command(config: RunConfig) -> list[str]:
         cmd.extend(["--outfile", config.outfile])
 
     # Trace formatter: add as a second formatter alongside any report format
-    # Only when behave-trace is installed (graceful degradation otherwise)
-    if (config.trace or config.ui or config.debug) and is_installed("behave_trace"):
-        cmd.extend(["--format", "behave_trace:TraceFormatter"])
+    # Only when behave-trace is installed; warn otherwise (same graceful
+    # degradation contract as --parallel/behave-pool).
+    if config.trace or config.ui or config.debug:
+        if is_installed("behave_trace"):
+            cmd.extend(["--format", "behave_trace:TraceFormatter"])
+        else:
+            warnings.warn(
+                "--trace/--ui/--debug require behave-trace to be installed; "
+                "ignoring. Install with: pip install behave-runner[trace]",
+                stacklevel=2,
+            )
 
     return cmd
 

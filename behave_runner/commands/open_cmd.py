@@ -31,7 +31,7 @@ def open_command(
 ) -> None:
     """Open the latest report or trace viewer in the browser."""
     if target == "trace":
-        _open_trace()
+        _open_trace(output)
         return
 
     _open_report(output)
@@ -42,13 +42,14 @@ def _open_report(output: Path) -> None:
     open_latest_report(output)
 
 
-def _open_trace() -> None:
+def _open_trace(output: Path) -> None:
     """Open the trace viewer via behave-trace."""
     if not check_optional("trace", "behave_trace", "trace"):
         raise typer.Exit(2)
 
-    # Search for trace.json in common locations
+    # Search for trace.json in the given output dir and common locations
     trace_candidates = [
+        output / "trace.json",
         Path("reports") / "trace.json",
         Path("trace.json"),
         Path("output") / "trace.json",

@@ -4,10 +4,36 @@ from __future__ import annotations
 
 import importlib
 import subprocess  # nosec B404
+import sys
+from pathlib import Path
 
 from rich.console import Console
 
 console = Console()
+
+
+def resolve_executable(name: str) -> str:
+    """Resolve a console script name to a path next to the current interpreter.
+
+    External behave-* tools are checked for via ``importlib`` but invoked as
+    console scripts. When the interpreter's Scripts/bin directory is not on
+    ``PATH`` (venv not activated, ``pip install --user``, etc.), the package
+    is importable but the script cannot be found by name. Prefer the script
+    located next to ``sys.executable``; fall back to the bare name so PATH
+    resolution still works.
+    """
+    exe_dir = Path(sys.executable).parent
+    candidates = [
+        exe_dir / name,
+        exe_dir / f"{name}.exe",
+        exe_dir / "Scripts" / name,
+        exe_dir / "Scripts" / f"{name}.exe",
+        exe_dir / "bin" / name,
+    ]
+    for candidate in candidates:
+        if candidate.is_file():
+            return str(candidate)
+    return name
 
 
 def is_installed(package: str) -> bool:
@@ -41,8 +67,9 @@ def run_external(cmd: list[str], tool_name: str, install_hint: str) -> int:
     Returns:
         The tool's exit code, or 2 if the tool is not found or raises OSError.
     """
+    resolved = [resolve_executable(cmd[0]), *cmd[1:]]
     try:
-        result = subprocess.run(cmd, check=False)  # noqa: S603  # nosec B603
+        result = subprocess.run(resolved, check=False)  # noqa: S603  # nosec B603
         return result.returncode
     except FileNotFoundError:
         console.print(
