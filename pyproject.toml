@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "behave-runner"
-version = "1.3.0"
+dynamic = ["version"]
 description = "A unified CLI entry point for the Behave BDD ecosystem, with subcommands for running, listing, selecting, linting, formatting, watching, reporting and more."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -96,6 +96,9 @@ Homepage = "https://github.com/MathiasPaulenko/behave-runner"
 Repository = "https://github.com/MathiasPaulenko/behave-runner"
 Issues = "https://github.com/MathiasPaulenko/behave-runner/issues"
 Changelog = "https://github.com/MathiasPaulenko/behave-runner/blob/main/CHANGELOG.md"
+
+[tool.hatch.version]
+path = "behave_runner/__init__.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["behave_runner"]
