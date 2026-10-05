@@ -2,6 +2,54 @@
 
 ## Unreleased
 
+## [1.4.0] - 2026-10-05
+
+### Fixed
+
+- Fixed `run` and `watch` ignoring base `[tool.behave-runner]` values.
+  Configuration now merges as documented: base table < profile < CLI flags.
+- Fixed `--max-fail` values above 1 silently mapping to `--stop`. Now emits a
+  warning explaining that behave can only stop at the first failure.
+- Fixed `--trace`, `--ui`, and `--debug` being silently ignored when
+  `behave-trace` is not installed. Now emits a warning (same contract as
+  `--parallel`/`behave-pool`).
+- Fixed `config set` writing bracket values like `[@smoke, @fast]` as plain
+  strings. Values now accept TOML syntax (lists, quoted strings, numbers,
+  booleans) and unquoted bracket lists are converted to TOML arrays.
+- Fixed `config set` dropping trailing comments on edited lines and mangling
+  the confirmation message when values contained `[brackets]` (Rich markup).
+- Fixed `config set` rejecting dotted keys (e.g. `profiles.ci.parallel`) when
+  the matching subtable exists. The leaf is now written inside the subtable.
+- Fixed `config` showing a raw docstring as its help text and printing
+  nothing when invoked without a subcommand.
+- Fixed `config show` printing nested tables as raw dicts; they are now
+  rendered as JSON.
+- Fixed `open trace` ignoring the `--output` directory.
+- Fixed `report generate` writing nothing for non-console formats unless
+  `--output` was given. Reports now default to `reports/` so `report show`
+  and `open` work out of the box.
+- Fixed `behave.ini` being read with the platform locale encoding instead of
+  UTF-8, and `config` reading/writing `pyproject.toml` without an explicit
+  encoding.
+- Fixed external tool calls (`behave-lint`, `behave-format`, `behave-doctor`,
+  `behave-gen`, `steplib`, `behave-trace`, `wavexis`) failing when the
+  package was importable but its console script was not on `PATH`. Scripts
+  are now resolved next to `sys.executable` first.
+- Fixed `list`/`select` silently ignoring feature paths that do not exist;
+  a warning is now logged.
+
+### Changed
+
+- The package version is now defined once in `behave_runner/__init__.py` and
+  read dynamically by hatch (`[tool.hatch.version]`), so builds, tags, and
+  `--version` can never diverge.
+- Renamed the internal `_normalize_profile` helper to `_normalize_values`
+  since it now normalizes both base config and profile values.
+- Fixed several documentation inaccuracies in `docs/`: the `impact` example
+  in the FAQ, default report locations, watch paths and `--pattern` wording,
+  `config set` value syntax, CI action versions, and GitLab/Jenkins test
+  commands.
+
 ## [1.3.0] - 2026-08-14
 
 ### Fixed
