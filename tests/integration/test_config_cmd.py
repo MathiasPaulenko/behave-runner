@@ -223,7 +223,7 @@ def test_config_show_malformed_pyproject(tmp_path: Path, monkeypatch: pytest.Mon
 def test_config_set_dotted_key_conflict_with_subtable(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Test config set rejects dotted key when a subtable already exists."""
+    """Test config set writes into the subtable when it already exists."""
     (tmp_path / "pyproject.toml").write_text(
         textwrap.dedent("""
             [project]
@@ -238,7 +238,8 @@ def test_config_set_dotted_key_conflict_with_subtable(
     )
     monkeypatch.chdir(tmp_path)
     result = runner.invoke(app, ["config", "set", "profiles.ci.tags", "@regression"])
-    assert result.exit_code == 2
+    assert result.exit_code == 0
+    assert 'tags = "@regression"' in (tmp_path / "pyproject.toml").read_text()
 
 
 def test_config_help() -> None:

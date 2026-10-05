@@ -18,8 +18,9 @@ runner = CliRunner()
 
 
 @pytest.mark.parametrize("fmt", ["console", "html", "md", "json", "sheets", "file"])
-def test_report_generate_format(fmt: str) -> None:
+def test_report_generate_format(fmt: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Test each report format builds correct RunConfig."""
+    monkeypatch.chdir(tmp_path)  # non-console formats create ./reports
     with patch("behave_runner.commands.report.run", return_value=0) as mock_run:
         result = runner.invoke(
             app, ["report", "generate", "--format", fmt, "tests/fixtures/minimal"]
@@ -104,12 +105,16 @@ def test_report_generate_console_no_outfile(tmp_path: Path) -> None:
     assert config.outfile is None
 
 
-def test_report_generate_no_output_no_outfile() -> None:
-    """Test without --output, outfile is None."""
+def test_report_generate_no_output_defaults_to_reports(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test non-console formats without --output write to reports/."""
+    monkeypatch.chdir(tmp_path)
     with patch("behave_runner.commands.report.run", return_value=0) as mock_run:
         runner.invoke(app, ["report", "generate", "--format", "json"])
     config = mock_run.call_args[0][0]
-    assert config.outfile is None
+    assert config.outfile == str(Path("reports") / "report.json")
+    assert (tmp_path / "reports").is_dir()
 
 
 def test_report_generate_propagates_exit_code() -> None:

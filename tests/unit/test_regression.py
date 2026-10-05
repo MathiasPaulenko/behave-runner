@@ -87,10 +87,10 @@ def test_report_format_sheets_accepted() -> None:
 
 def test_profile_tags_normalization_from_string() -> None:
     """Ensure tags from config that are a string are normalized to list."""
-    from behave_runner.core.config import _normalize_profile
+    from behave_runner.core.config import _normalize_values
 
     profile = {"tags": "@smoke, @fast", "format": "pretty"}
-    normalized = _normalize_profile(profile)
+    normalized = _normalize_values(profile)
     assert isinstance(normalized.get("tags"), list)
     assert "@smoke" in normalized["tags"]
     assert "@fast" in normalized["tags"]
@@ -1211,18 +1211,20 @@ def test_profile_smoke_adds_smoke_tag(tmp_path: Path, monkeypatch) -> None:
 
 
 def test_set_config_value_dotted_key_with_existing_subtable(tmp_path: Path) -> None:
-    """_set_config_value should refuse to corrupt TOML when a subtable exists."""
+    """_set_config_value writes the leaf inside an existing subtable."""
+    import tomllib
+
     from behave_runner.commands.config_cmd import _parse_value, _set_config_value
-    from behave_runner.exceptions import ConfigError
 
     p = tmp_path / "pyproject.toml"
     p.write_text(
         '[tool.behave-runner]\nparallel = 2\n\n[tool.behave-runner.profiles.ci]\ntags = ["fast"]\n'
     )
-    with pytest.raises(ConfigError, match="subtable already exists"):
-        _set_config_value(p, "profiles.ci.tags", _parse_value("smoke"))
-    # File should be unchanged
-    assert 'tags = ["fast"]' in p.read_text()
+    _set_config_value(p, "profiles.ci.tags", _parse_value("smoke"))
+    with p.open("rb") as f:
+        data = tomllib.load(f)
+    assert data["tool"]["behave-runner"]["profiles"]["ci"]["tags"] == "smoke"
+    assert data["tool"]["behave-runner"]["parallel"] == 2
 
 
 def test_set_config_value_dotted_key_no_subtable(tmp_path: Path) -> None:
@@ -1256,22 +1258,27 @@ def test_set_config_value_validates_toml(tmp_path: Path) -> None:
 
 def test_config_set_catches_config_error(tmp_path: Path, monkeypatch) -> None:
     """config set should show clean error when _set_config_value raises ConfigError."""
+    from unittest.mock import patch as _patch
+
     from typer.testing import CliRunner
 
     from behave_runner.cli.app import app
+    from behave_runner.exceptions import ConfigError
 
     p = tmp_path / "pyproject.toml"
-    p.write_text(
-        '[tool.behave-runner]\nparallel = 2\n\n[tool.behave-runner.profiles.ci]\ntags = ["fast"]\n'
-    )
+    p.write_text("[tool.behave-runner]\nparallel = 2\n")
     monkeypatch.chdir(tmp_path)
 
     cli_runner = CliRunner()
-    result = cli_runner.invoke(app, ["config", "set", "profiles.ci.tags", "smoke"])
+    with _patch(
+        "behave_runner.commands.config_cmd._set_config_value",
+        side_effect=ConfigError("forced failure"),
+    ):
+        result = cli_runner.invoke(app, ["config", "set", "parallel", "8"])
     assert result.exit_code == 2
-    assert "subtable already" in result.stdout
+    assert "forced failure" in result.stdout
     # File should be unchanged
-    assert 'tags = ["fast"]' in p.read_text()
+    assert "parallel = 2" in p.read_text()
 
 
 # --- Regression: RunConfig.parallel=0 should be rejected ---
@@ -1433,9 +1440,10 @@ def test_collect_scenarios_coerces_none_names_to_empty_string(tmp_path: Path, mo
 
 
 def test_set_config_value_dotted_key_grandparent_conflict(tmp_path: Path) -> None:
-    """_set_config_value should reject dotted keys conflicting with grandparent subtable."""
+    """_set_config_value writes the leaf in the deepest existing subtable."""
+    import tomllib
+
     from behave_runner.commands.config_cmd import _parse_value, _set_config_value
-    from behave_runner.exceptions import ConfigError
 
     p = tmp_path / "pyproject.toml"
     p.write_text(
@@ -1443,26 +1451,29 @@ def test_set_config_value_dotted_key_grandparent_conflict(tmp_path: Path) -> Non
         "[tool.behave-runner.profiles]\n\n"
         '[tool.behave-runner.profiles.ci]\ntags = ["fast"]\n'
     )
-    # key is profiles.ci.tags, parent is profiles.ci, grandparent is profiles
-    # Both [tool.behave-runner.profiles] and [tool.behave-runner.profiles.ci] exist
-    with pytest.raises(ConfigError, match="subtable already exists"):
-        _set_config_value(p, "profiles.ci.tags", _parse_value("smoke"))
-    # File should be unchanged
-    assert 'tags = ["fast"]' in p.read_text()
+    # Both [tool.behave-runner.profiles] and [tool.behave-runner.profiles.ci]
+    # exist — the leaf lands in the deepest one, keeping TOML valid.
+    _set_config_value(p, "profiles.ci.tags", _parse_value("smoke"))
+    with p.open("rb") as f:
+        data = tomllib.load(f)
+    assert data["tool"]["behave-runner"]["profiles"]["ci"]["tags"] == "smoke"
 
 
 def test_set_config_value_dotted_key_parent_only_conflict(tmp_path: Path) -> None:
-    """_set_config_value should reject dotted keys conflicting with parent subtable."""
+    """_set_config_value writes into a parent subtable even without grandparents."""
+    import tomllib
+
     from behave_runner.commands.config_cmd import _parse_value, _set_config_value
-    from behave_runner.exceptions import ConfigError
 
     p = tmp_path / "pyproject.toml"
     p.write_text(
         '[tool.behave-runner]\nparallel = 2\n\n[tool.behave-runner.profiles.ci]\ntags = ["fast"]\n'
     )
     # Only [tool.behave-runner.profiles.ci] exists, not [tool.behave-runner.profiles]
-    with pytest.raises(ConfigError, match="subtable already exists"):
-        _set_config_value(p, "profiles.ci.tags", _parse_value("smoke"))
+    _set_config_value(p, "profiles.ci.tags", _parse_value("smoke"))
+    with p.open("rb") as f:
+        data = tomllib.load(f)
+    assert data["tool"]["behave-runner"]["profiles"]["ci"]["tags"] == "smoke"
 
 
 # --- Regression: _ini_flat_to_nested should detect key conflicts ---
@@ -2271,3 +2282,302 @@ def test_init_all_exports_version() -> None:
     assert hasattr(behave_runner, "__all__")
     assert "__version__" in behave_runner.__all__
     assert behave_runner.__version__ == "1.3.0"
+
+
+# --- Regression: base [tool.behave-runner] config is applied to runs ---
+
+
+def test_load_defaults_returns_base_config(tmp_path: Path) -> None:
+    """load_defaults returns top-level values, excluding profiles."""
+    from behave_runner.core.config import load_defaults
+
+    (tmp_path / "pyproject.toml").write_text(
+        "[tool.behave-runner]\nparallel = 4\n\n[tool.behave-runner.profiles.ci]\nparallel = 8\n"
+    )
+    defaults = load_defaults(tmp_path)
+    assert defaults["parallel"] == 4
+    assert "profiles" not in defaults
+
+
+def test_run_merges_base_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Base [tool.behave-runner] values apply even without --profile."""
+    (tmp_path / "pyproject.toml").write_text("[tool.behave-runner]\nparallel = 4\ndry_run = true\n")
+    monkeypatch.chdir(tmp_path)
+    with patch("behave_runner.commands.run.run", return_value=0) as mock_run:
+        result = runner.invoke(app, ["run", "features"])
+    assert result.exit_code == 0
+    config = mock_run.call_args[0][0]
+    assert config.parallel == 4
+    assert config.dry_run is True
+
+
+def test_run_profile_overrides_base(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Profile values override base config values."""
+    (tmp_path / "pyproject.toml").write_text(
+        "[tool.behave-runner]\nparallel = 4\n\n[tool.behave-runner.profiles.ci]\nparallel = 8\n"
+    )
+    monkeypatch.chdir(tmp_path)
+    with patch("behave_runner.commands.run.run", return_value=0) as mock_run:
+        result = runner.invoke(app, ["run", "--profile", "ci", "features"])
+    assert result.exit_code == 0
+    assert mock_run.call_args[0][0].parallel == 8
+
+
+def test_run_cli_overrides_base(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """CLI flags win over base config values."""
+    (tmp_path / "pyproject.toml").write_text("[tool.behave-runner]\nparallel = 4\n")
+    monkeypatch.chdir(tmp_path)
+    with patch("behave_runner.commands.run.run", return_value=0) as mock_run:
+        result = runner.invoke(app, ["run", "--parallel", "2", "features"])
+    assert result.exit_code == 0
+    assert mock_run.call_args[0][0].parallel == 2
+
+
+def test_run_bad_base_config_exits_2(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A malformed pyproject.toml exits with code 2, not a traceback."""
+    (tmp_path / "pyproject.toml").write_text("[tool.behave-runner\nbroken")
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(app, ["run", "features"])
+    assert result.exit_code == 2
+
+
+def test_watch_merges_base_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """watch applies base [tool.behave-runner] values to re-run configs."""
+    (tmp_path / "pyproject.toml").write_text("[tool.behave-runner]\nretries = 3\n")
+    monkeypatch.chdir(tmp_path)
+
+    class _FakeWatcher:
+        def __init__(self, paths, on_change, debounce_ms=500):
+            self._cb = on_change
+
+        def run(self) -> None:
+            self._cb([Path("features/x.feature")])
+            raise KeyboardInterrupt
+
+    monkeypatch.setattr("behave_runner.commands.watch.FileWatcher", _FakeWatcher)
+    with patch("behave_runner.commands.watch.run", return_value=0) as mock_run:
+        result = runner.invoke(app, ["watch", "features"])
+    assert result.exit_code == 0
+    assert mock_run.call_args[0][0].retries == 3
+
+
+# --- Regression: config set fixes ---
+
+
+def test_config_set_preserves_trailing_comment(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """config set keeps trailing comments on the edited line."""
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text("[tool.behave-runner]\nparallel = 4  # workers\n")
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(app, ["config", "set", "parallel", "8"])
+    assert result.exit_code == 0
+    content = pyproject.read_text()
+    assert "parallel = 8" in content
+    assert "# workers" in content
+
+
+def test_config_set_preserves_hash_inside_string(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A # inside a quoted string value is not treated as a comment."""
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text('[tool.behave-runner]\nformat = "a#b"  # note\n')
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(app, ["config", "set", "format", "json"])
+    assert result.exit_code == 0
+    content = pyproject.read_text()
+    assert 'format = "json" # note' in content
+
+
+def test_config_set_toml_list(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """config set parses TOML list syntax into a real list."""
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text("[tool.behave-runner]\n")
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(app, ["config", "set", "tags", '["@smoke", "@fast"]'])
+    assert result.exit_code == 0
+    assert '["@smoke", "@fast"]' in pyproject.read_text()
+
+
+def test_config_set_unquoted_bracket_list(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """config set accepts bare bracket lists like [@smoke, @fast]."""
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text("[tool.behave-runner]\n")
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(app, ["config", "set", "tags", "[@smoke, @fast]"])
+    assert result.exit_code == 0
+    assert '["@smoke", "@fast"]' in pyproject.read_text()
+
+
+def test_config_set_dotted_key_into_subtable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Dotted keys are written inside the matching subtable if one exists."""
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        "[tool.behave-runner]\ntimeout = 60\n\n[tool.behave-runner.profiles.ci]\nparallel = 4\n"
+    )
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(app, ["config", "set", "profiles.ci.parallel", "8"])
+    assert result.exit_code == 0
+    content = pyproject.read_text()
+    assert "parallel = 8" in content
+    # The key must land inside the subtable, not as a dotted key in the root
+    root_section = content.split("[tool.behave-runner.profiles.ci]")[0]
+    assert "profiles.ci.parallel" not in root_section
+
+
+def test_config_set_echo_escapes_markup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Values containing [brackets] are echoed literally, not eaten as markup."""
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text("[tool.behave-runner]\n")
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(app, ["config", "set", "tags", "[@smoke, @fast]"])
+    assert result.exit_code == 0
+    assert "@smoke" in result.stdout
+
+
+def test_config_no_args_shows_help() -> None:
+    """`behave-runner config` with no subcommand shows help, not silence."""
+    result = runner.invoke(app, ["config"])
+    assert result.exit_code == 0 or result.exit_code == 2
+    assert "show" in result.output
+
+
+# --- Regression: open trace respects --output ---
+
+
+def test_open_trace_uses_output_dir(tmp_path: Path) -> None:
+    """open trace searches for trace.json inside --output first."""
+    import importlib.util
+
+    if importlib.util.find_spec("behave_trace") is None:
+        pytest.skip("behave-trace not installed")
+    trace_file = tmp_path / "trace.json"
+    trace_file.write_text("{}")
+    with patch("behave_runner.commands.open_cmd.run_external", return_value=0) as mock_ext:
+        result = runner.invoke(app, ["open", "trace", "--output", str(tmp_path)])
+    assert result.exit_code == 0
+    assert str(trace_file) in mock_ext.call_args[0][0]
+
+
+# --- Regression: warnings for unsupported / degraded flags ---
+
+
+def test_max_failures_gt1_warns() -> None:
+    """max_failures > 1 warns that behave only stops at the first failure."""
+    config = RunConfig(max_failures=3)
+    with pytest.warns(UserWarning, match="max-fail"):
+        cmd = build_behave_command(config)
+    assert "--stop" in cmd
+
+
+def test_max_failures_1_no_warning() -> None:
+    """max_failures = 1 maps cleanly to --stop with no warning."""
+    import warnings
+
+    config = RunConfig(max_failures=1)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        cmd = build_behave_command(config)
+    assert "--stop" in cmd
+
+
+def test_trace_flags_warn_without_behave_trace() -> None:
+    """--trace/--ui/--debug warn when behave-trace is not installed."""
+    import importlib.util
+
+    config = RunConfig(trace=True)
+    if importlib.util.find_spec("behave_trace") is not None:
+        cmd = build_behave_command(config)
+        assert "behave_trace:TraceFormatter" in cmd
+    else:
+        with pytest.warns(UserWarning, match="behave-trace"):
+            cmd = build_behave_command(config)
+        assert "behave_trace:TraceFormatter" not in cmd
+
+
+# --- Regression: external tools resolve next to sys.executable ---
+
+
+def test_resolve_executable_finds_sibling_script(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """resolve_executable prefers a script next to sys.executable."""
+    import sys
+
+    from behave_runner.core.deps import resolve_executable
+
+    scripts_dir = tmp_path / "Scripts"
+    scripts_dir.mkdir()
+    tool = scripts_dir / "mytool.exe"
+    tool.write_text("x")
+    monkeypatch.setattr(sys, "executable", str(tmp_path / "python.exe"))
+    assert resolve_executable("mytool") == str(tool)
+
+
+def test_resolve_executable_falls_back_to_name(monkeypatch: pytest.MonkeyPatch) -> None:
+    """resolve_executable returns the bare name when no sibling script exists."""
+    import sys
+
+    from behave_runner.core.deps import resolve_executable
+
+    monkeypatch.setattr(sys, "executable", r"C:\nowhere\python.exe")
+    assert resolve_executable("mytool") == "mytool"
+
+
+# --- Regression: report generate defaults to reports/ for non-console ---
+
+
+def test_report_generate_defaults_to_reports_dir(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Non-console formats write to reports/ by default."""
+    monkeypatch.chdir(tmp_path)
+    with patch("behave_runner.commands.report.run", return_value=0) as mock_run:
+        result = runner.invoke(app, ["report", "generate", "--format", "json"])
+    assert result.exit_code == 0
+    config = mock_run.call_args[0][0]
+    assert config.outfile == str(Path("reports") / "report.json")
+    assert (tmp_path / "reports").is_dir()
+
+
+def test_report_generate_console_creates_no_dir(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The console format prints to stdout and does not create reports/."""
+    monkeypatch.chdir(tmp_path)
+    with patch("behave_runner.commands.report.run", return_value=0) as mock_run:
+        result = runner.invoke(app, ["report", "generate", "--format", "console"])
+    assert result.exit_code == 0
+    assert mock_run.call_args[0][0].outfile is None
+    assert not (tmp_path / "reports").exists()
+
+
+# --- Regression: collect_scenarios warns on bad paths ---
+
+
+def test_collect_scenarios_warns_on_missing_path(caplog: pytest.LogCaptureFixture) -> None:
+    """A nonexistent feature path logs a warning instead of staying silent."""
+    import logging
+
+    from behave_runner.core.features import collect_scenarios
+
+    with caplog.at_level(logging.WARNING, logger="behave_runner.core.features"):
+        result = collect_scenarios([Path("does-not-exist-xyz")])
+    assert result == []
+    assert "does-not-exist-xyz" in caplog.text
+
+
+# --- Regression: behave.ini is read as UTF-8 ---
+
+
+def test_behave_ini_read_as_utf8(tmp_path: Path) -> None:
+    """behave.ini with non-ASCII values parses correctly regardless of locale."""
+    from behave_runner.core.config import load_config
+
+    (tmp_path / "behave.ini").write_text("[behave-runner]\nname = café\n", encoding="utf-8")
+    config = load_config(tmp_path)
+    assert config["name"] == "café"
