@@ -9,7 +9,7 @@ from pathlib import Path
 import typer
 from rich.console import Console
 
-from behave_runner.core.config import load_profile
+from behave_runner.core.config import load_defaults, load_profile
 from behave_runner.core.orchestrator import RunConfig, run, validate_shard
 from behave_runner.core.watcher import FileWatcher
 from behave_runner.exceptions import ConfigError
@@ -66,7 +66,7 @@ def watch_command(
     tags: list[str] = typer.Option([], "--tags", "-t", help="Filter by tags."),
     debounce: int = typer.Option(500, "--debounce", help="Debounce time in milliseconds."),
     pattern: str | None = typer.Option(
-        None, "--pattern", help="Glob pattern to filter watched files."
+        None, "--pattern", help="Glob pattern to filter which changed files trigger a re-run."
     ),
     profile: str | None = typer.Option(
         None, "--profile", help="Load a configuration profile from pyproject.toml."
@@ -96,13 +96,15 @@ def watch_command(
         console.print("[red]Error: --debounce must be a non-negative integer.[/red]")
         raise typer.Exit(2)
 
-    profile_config: dict[str, object] = {}
-    if profile is not None:
-        try:
-            profile_config = load_profile(profile)
-        except ConfigError as e:
-            console.print(f"[red]Error: {e}[/red]")
-            raise typer.Exit(2) from e
+    try:
+        # Base [tool.behave-runner] values are the project-wide defaults;
+        # the profile overrides them; CLI flags override both.
+        profile_config: dict[str, object] = load_defaults()
+        if profile is not None:
+            profile_config.update(load_profile(profile))
+    except ConfigError as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(2) from e
 
     # Features: CLI takes priority, then profile, then default
     if features:

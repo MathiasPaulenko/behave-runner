@@ -8,7 +8,7 @@ from typing import Any
 import typer
 from rich.console import Console
 
-from behave_runner.core.config import load_profile
+from behave_runner.core.config import load_defaults, load_profile
 from behave_runner.core.orchestrator import RunConfig, run, validate_shard
 from behave_runner.exceptions import ConfigError
 
@@ -81,13 +81,15 @@ def run_command(
         console_err.print("[yellow]--flaky-report requires --retries > 0. Ignoring.[/yellow]")
         flaky_report = False
 
-    profile_config: dict[str, Any] = {}
-    if profile is not None:
-        try:
-            profile_config = load_profile(profile)
-        except ConfigError as e:
-            console_err.print(f"[red]Error: {e}[/red]")
-            raise typer.Exit(2) from e
+    try:
+        # Base [tool.behave-runner] values are the project-wide defaults;
+        # the profile overrides them; CLI flags override both.
+        profile_config: dict[str, Any] = load_defaults()
+        if profile is not None:
+            profile_config.update(load_profile(profile))
+    except ConfigError as e:
+        console_err.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(2) from e
 
     # Merge shard from profile, validate it
     p_shard = shard if shard is not None else profile_config.get("shard")

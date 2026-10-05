@@ -77,7 +77,7 @@ def load_config(project_path: Path | None = None) -> dict[str, Any]:
     if behave_ini.exists():
         parser = configparser.ConfigParser(interpolation=None)
         try:
-            parser.read(behave_ini)
+            parser.read(behave_ini, encoding="utf-8")
         except (configparser.Error, UnicodeDecodeError) as e:
             raise ConfigError(f"Failed to parse {behave_ini}: {e}") from e
         if parser.has_section("behave-runner"):
@@ -129,11 +129,22 @@ def load_profile(name: str, project_path: Path | None = None) -> dict[str, Any]:
         raise ConfigError(f"Profile '{name}' not found in configuration.")
     if not isinstance(profile, dict):
         raise ConfigError(f"Profile '{name}' must be a table.")
-    return _normalize_profile(profile)
+    return _normalize_values(profile)
 
 
-def _normalize_profile(profile: dict[str, Any]) -> dict[str, Any]:
-    """Normalize profile values to proper Python types.
+def load_defaults(project_path: Path | None = None) -> dict[str, Any]:
+    """Load the base [tool.behave-runner] values (excluding 'profiles').
+
+    These are the project-wide defaults that apply to every run. Profile
+    values loaded via load_profile() are merged on top of them.
+    """
+    config = load_config(project_path)
+    base = {k: v for k, v in config.items() if k != "profiles"}
+    return _normalize_values(base)
+
+
+def _normalize_values(profile: dict[str, Any]) -> dict[str, Any]:
+    """Normalize config values to proper Python types.
 
     Converts list, int, and bool values from their raw config representation
     (which may be strings from INI files or native types from TOML) into
