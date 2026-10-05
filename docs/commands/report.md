@@ -25,8 +25,8 @@ behave-runner report generate [OPTIONS] [FEATURES]...
 | Flag | Type | Default | Description |
 | --- | --- | --- | --- |
 | `[FEATURES]...` | PATH | `features` | Paths to feature files or directories. |
-| `--format` | TEXT | `console` | Report format: `console`, `html`, `md`, `json`, `sheets`, `file`. |
-| `--output` | PATH | None | Output directory for reports. |
+| `--format` | TEXT | `console` | Report format: `console`, `html`, `md`, `json`, `sheets` (XLSX), `file` (DOCX). |
+| `--output` | PATH | `reports` (non-console) | Output directory for reports. |
 
 ### report show
 

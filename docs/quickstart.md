@@ -16,12 +16,12 @@ cd my-project
 ```
 
 The command creates a standard layout with a `features/` directory,
-`steps/`, and an `environment.py` file.
+`features/steps/`, and an `environment.py` file.
 
 !!! note "Project name"
     `--name` is required. The command creates a standard layout with a
-    `features/` directory, `steps/`, and an `environment.py` file inside the
-    named project directory.
+    `features/` directory, `features/steps/`, and an `environment.py` file
+    inside the named project directory.
 
 ## 2. Add a feature
 
@@ -36,8 +36,9 @@ Feature: User login
     Then the user is redirected to the dashboard
 ```
 
-Add matching step definitions in `steps/login_steps.py` if you want the
-test to be executable. For this quickstart, listing the scenario is enough.
+Add matching step definitions in `features/steps/login_steps.py` if you want
+the test to be executable. For this quickstart, listing the scenario is
+enough.
 
 ## 3. List scenarios
 
@@ -80,9 +81,9 @@ Start the watcher to re-run the suite whenever feature or step files change:
 behave-runner watch features/
 ```
 
-By default, the watcher polls `features/`, `steps/`, `environment.py`,
-`behave.ini`, and `pyproject.toml` with a 500 ms debounce. Press `Ctrl+C` to
-stop.
+By default, the watcher polls `features/`, `features/steps/`,
+`environment.py`, `behave.ini`, and `pyproject.toml` with a 500 ms debounce.
+Press `Ctrl+C` to stop.
 
 ## Next steps
 

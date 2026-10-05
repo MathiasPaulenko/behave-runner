@@ -21,8 +21,8 @@ behave-runner watch [OPTIONS] [FEATURES]...
 | `[FEATURES]...` | PATH | `features` | Feature paths to watch and run. |
 | `--tags` `-t` | TEXT | None | Filter by tags. |
 | `--debounce` | INTEGER | `500` | Debounce time in milliseconds. Must be >= 0. |
-| `--pattern` | TEXT | None | Glob pattern to filter watched files. |
-| `--profile` | TEXT | None | Load a configuration profile from `pyproject.toml`. |
+| `--pattern` | TEXT | None | Glob pattern to filter which changed files trigger a re-run. |
+| `--profile` | TEXT | None | Load a configuration profile from `pyproject.toml` or `behave.ini`. |
 | `--retries` | INTEGER | None | Number of retries for failed scenarios. |
 | `--parallel` `-n` | INTEGER | None | Number of parallel processes. |
 | `--format` | TEXT | None | Output format. |
@@ -42,7 +42,7 @@ behave-runner watch
 # Watch a specific directory with tag filter
 behave-runner watch --tags @smoke features/
 
-# Watch only .feature files matching a pattern
+# Re-run only when .feature files change
 behave-runner watch --pattern "*.feature"
 
 # Watch with UI mode

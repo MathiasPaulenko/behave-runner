@@ -57,7 +57,7 @@ Use the `watch` command:
 behave-runner watch features/
 ```
 
-It polls `features/`, `steps/`, `environment.py`, `behave.ini`, and
+It polls `features/`, `features/steps/`, `environment.py`, `behave.ini`, and
 `pyproject.toml` and re-runs the suite on every change.
 
 ## How do I list all scenarios without running them?
@@ -75,10 +75,12 @@ behave-runner list features/ --format json
 ## How do I find scenarios affected by code changes?
 
 ```bash
-behave-runner impact $(git diff --name-only HEAD~1) --run
+behave-runner impact --run
 ```
 
-This uses `behave-doctor` to detect affected scenarios and runs them.
+This uses `behave-doctor` to scan the project, detect scenarios affected by
+code changes, and runs them. Pass a project root to analyze a different
+directory: `behave-runner impact path/to/project --run`.
 
 ## How do I record a browser session?
 
@@ -91,8 +93,9 @@ behave-runner record https://example.com
 
 ## Where are the reports saved?
 
-By default, reports are written to `reports/`. Use `--output` to change the
-directory.
+File-based reports (`html`, `md`, `json`, `sheets`, `file`) are written to
+`reports/` by default. Use `--output` to change the directory. The `console`
+format prints to the terminal and does not create files.
 
 ## How do I embed `behave-runner` in my own Python script?
 

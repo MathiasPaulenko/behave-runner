@@ -35,7 +35,7 @@ are not installed.
 - Optional parallel execution, sharding, retries and priority ordering.
 - Configuration profiles via `pyproject.toml` or `behave.ini`.
 - Watch mode that re-runs tests when files change.
-- Reports in console, HTML, Markdown, JSON, sheets and file formats.
+- Reports in console, HTML, Markdown, JSON, XLSX and DOCX formats.
 - Trace viewer and web dashboard support.
 - Step library management and feature/step generation.
 - Impact analysis to detect scenarios affected by code changes.
@@ -185,7 +185,7 @@ below can be installed individually or through `behave-runner` extras.
 | Library                                                                                                           | Category   | Purpose                                  | Extra            |
 | ----------------------------------------------------------------------------------------------------------------- | ---------- | ---------------------------------------- | ---------------- |
 | [behave](https://github.com/behave/behave)                                                                        | Core       | BDD framework.                           | included         |
-| [behave-kit](https://github.com/MathiasPaulenko/behave-kit)                                                       | Core       | Timeouts and config profiles.            | included         |
+| [behave-kit](https://github.com/MathiasPaulenko/behave-kit)                                                       | Core       | Testing utilities: timeouts, fixtures, hooks. | included         |
 | [behave-model](https://github.com/MathiasPaulenko/behave-model)                                                   | Core       | Feature and scenario parsing.            | included         |
 | [behave-pool](https://github.com/MathiasPaulenko/behave-pool)                                                     | Execution  | Parallel and sharded runs.               | `parallel`       |
 | [behave-priority](https://github.com/MathiasPaulenko/behave-priority)                                             | Execution  | Priority ordering and smoke flags.       | `priority`       |
@@ -204,7 +204,7 @@ below can be installed individually or through `behave-runner` extras.
 | [behave-modern-md-report](https://github.com/MathiasPaulenko/behave-modern-md-report)                             | Reporting  | Markdown report.                         | `report-md`      |
 | [behave-modern-json-report](https://github.com/MathiasPaulenko/behave-modern-json-report)                         | Reporting  | JSON report.                             | `report-json`    |
 | [behave-modern-sheets-report](https://github.com/MathiasPaulenko/behave-modern-sheets-report)                     | Reporting  | XLSX/CSV report.                         | `report-sheets`  |
-| [behave-modern-file-report](https://github.com/MathiasPaulenko/behave-modern-file-report)                        | Reporting  | File report.                             | `report-file`    |
+| [behave-modern-file-report](https://github.com/MathiasPaulenko/behave-modern-file-report)                        | Reporting  | DOCX report.                             | `report-file`    |
 
 <!-- markdownlint-enable MD013 -->
 

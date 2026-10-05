@@ -25,7 +25,7 @@ behave-runner run [OPTIONS] [FEATURES]...
 | `--tags` `-t` | TEXT | None | Filter by tags. |
 | `--dry-run` | BOOLEAN | `False` | Parse scenarios without executing. |
 | `--stop-on-failure` | BOOLEAN | `False` | Stop at first failure. |
-| `--max-fail` | INTEGER | None | Maximum failures before stopping. |
+| `--max-fail` | INTEGER | None | Stop after failures. Behave only supports stopping at the first failure; values above `1` emit a warning and behave like `--stop`. |
 | `--timeout` | INTEGER | None | Global timeout in seconds. |
 | `--format` | TEXT | None | Output format for behave. |
 | `--output` | TEXT | None | Output file for the generated report. |

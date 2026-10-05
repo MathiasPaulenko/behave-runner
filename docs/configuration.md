@@ -10,8 +10,8 @@ description: Configure behave-runner with pyproject.toml, behave.ini, profiles, 
 1. `pyproject.toml` under `[tool.behave-runner]`
 2. `behave.ini` under `[behave-runner]`
 
-If `pyproject.toml` exists but has no `[tool.behave-runner]` section,
-`behave.ini` is used as a fallback.
+If `pyproject.toml` is missing or has no (or an empty)
+`[tool.behave-runner]` section, `behave.ini` is used as a fallback.
 
 ## pyproject.toml
 
@@ -43,7 +43,7 @@ timeout = 300
 | `name` | list of strings | Scenario name filters. |
 | `dry_run` | boolean | Parse scenarios without executing steps. |
 | `stop_on_failure` | boolean | Stop at the first failing scenario. |
-| `max_failures` | integer | Maximum failures before stopping. |
+| `max_failures` | integer | Stop after failures. Behave only stops at the first failure; values above `1` emit a warning. |
 | `flaky_report` | boolean | Generate a flakiness report. |
 | `priority_order` | boolean | Run scenarios in priority order. |
 | `fail_fast` | boolean | Stop at first failure with priority logic. |
@@ -122,15 +122,17 @@ behave-runner run --profile ci --format html features/
 ```
 
 !!! note "Current merge scope"
-    The `run` command merges all supported config values from the profile:
+    The `run` and `watch` commands merge all supported config values from
+    the base `[tool.behave-runner]` table and the selected profile:
     `features`, `tags`, `name`, `format`, `output`, `timeout`, `parallel`,
     `parallel_scheme`, `parallel_balance`, `parallel_timing_file`,
     `retries`, `dry_run`, `stop_on_failure`, `scenario_timeout`,
     `priority_order`, `fail_fast`, `flaky_report`, `max_failures` (or
     `max_fail`), `smoke`, `shard`, `no_color`, `verbose`, `ui`, `debug`,
-    and `trace`. CLI flags always win over profile values. Boolean flags
-    (`dry_run`, `stop_on_failure`, etc.) are OR-merged: if either the CLI
-    flag or the profile sets `true`, the result is `true`.
+    and `trace`. Profile values override base values, and CLI flags win
+    over both. Boolean flags (`dry_run`, `stop_on_failure`, etc.) are
+    OR-merged: if either the CLI flag or the configuration sets `true`,
+    the result is `true`.
 
 ## behave.ini
 
@@ -144,7 +146,7 @@ output = reports/results.json
 ```
 
 Note that `behave.ini` is only loaded when `pyproject.toml` has no
-`[tool.behave-runner]` section.
+`[tool.behave-runner]` section or the section is empty.
 
 !!! note "Profiles in behave.ini"
     Profiles are also supported in `behave.ini` using flat dot-notation keys:

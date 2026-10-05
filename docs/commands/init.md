@@ -5,7 +5,7 @@ Initialize a new behave project.
 ## Description
 
 `init` delegates to `behave-gen` to scaffold a new behave project with a
-standard directory layout, including `features/`, `steps/`, and
+standard directory layout, including `features/`, `features/steps/`, and
 `environment.py`.
 
 ## Usage

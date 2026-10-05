@@ -6,6 +6,38 @@ at the repository root.
 
 ## Unreleased
 
+### Fixed
+
+- Fixed `run` and `watch` ignoring base `[tool.behave-runner]` values.
+  Configuration now merges as documented: base table < profile < CLI flags.
+- Fixed `--max-fail` values above 1 silently mapping to `--stop`. Now emits a
+  warning explaining that behave can only stop at the first failure.
+- Fixed `--trace`, `--ui`, and `--debug` being silently ignored when
+  `behave-trace` is not installed. Now emits a warning.
+- Fixed `config set` writing bracket values like `[@smoke, @fast]` as plain
+  strings; values now accept TOML syntax and unquoted bracket lists.
+- Fixed `config set` dropping trailing comments and mangling echoed values
+  containing `[brackets]`.
+- Fixed `config set` rejecting dotted keys when the matching subtable exists;
+  the leaf is now written inside the subtable.
+- Fixed `config` showing a raw docstring as its help text.
+- Fixed `open trace` ignoring `--output`.
+- Fixed `report generate` writing nothing for non-console formats unless
+  `--output` was given; reports now default to `reports/`.
+- Fixed `behave.ini` being read with the platform locale instead of UTF-8.
+- Fixed external tool calls failing when the package was importable but its
+  console script was not on `PATH`; scripts are now resolved next to
+  `sys.executable` first.
+- Fixed `list`/`select` silently ignoring nonexistent feature paths.
+
+### Changed
+
+- Version is now defined once in `behave_runner/__init__.py` and read
+  dynamically by hatch.
+- Renamed `_normalize_profile` to `_normalize_values`.
+- Fixed documentation inaccuracies in the FAQ, watch/report/config command
+  pages, ecosystem page, and CI/CD page.
+
 ## [1.3.0] - 2026-08-14
 
 ### Fixed

@@ -14,7 +14,7 @@ running, listing, selecting, linting, formatting, watching, reporting and more.
 - **doctor** — Diagnose project health
 - **impact** — Detect scenarios affected by code changes
 - **watch** — Re-run tests on file changes
-- **report** — Generate test reports (console, HTML, Markdown, JSON, sheets, file)
+- **report** — Generate test reports (console, HTML, Markdown, JSON, XLSX, DOCX)
 - **trace** — Visual trace of test execution
 - **steps** — Manage step libraries
 - **generate** — Scaffold new projects and step definitions

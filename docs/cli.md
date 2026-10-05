@@ -55,7 +55,7 @@ behave-runner run [OPTIONS] [FEATURES]...
 | `--tags` | `-t` | Filter scenarios by tags. Repeatable. |
 | `--dry-run` | | Parse scenarios without executing steps. |
 | `--stop-on-failure` | | Stop at the first failing scenario. |
-| `--max-fail` | | Maximum number of failures before stopping. |
+| `--max-fail` | | Stop after failures. Behave only supports stopping at the first failure; values above `1` emit a warning and behave like `--stop`. |
 | `--timeout` | | Global timeout in seconds. |
 | `--format` | | Output format passed to `behave`. |
 | `--output` | | Output file path for the generated report. |
@@ -69,7 +69,7 @@ behave-runner run [OPTIONS] [FEATURES]...
 | `--priority-order` | | Run scenarios in priority order. Requires `behave-priority`. |
 | `--smoke` | | Run only `@smoke` scenarios (adds `@smoke` tag filter). |
 | `--fail-fast` | | Stop at the first failure with priority logic. Requires `behave-priority`. |
-| `--profile` | | Load a configuration profile from `pyproject.toml`. |
+| `--profile` | | Load a configuration profile from `pyproject.toml` or `behave.ini`. |
 | `--scenario-timeout` | | Per-scenario timeout in seconds. Requires `behave-kit`. |
 | `--ui` | | Launch the `behave-trace` web dashboard. |
 | `--debug` | | Enable interactive debugging. Requires `behave-trace`. |
@@ -122,8 +122,8 @@ behave-runner watch [OPTIONS] [FEATURES]...
 | `[FEATURES]...` | | Feature paths to watch and run. Defaults to `features/`. |
 | `--tags` | `-t` | Filter by tags. |
 | `--debounce` | | Debounce time in milliseconds. Default: `500`. |
-| `--pattern` | | Glob pattern to filter watched files. |
-| `--profile` | | Load a configuration profile from `pyproject.toml`. |
+| `--pattern` | | Glob pattern to filter which changed files trigger a re-run. |
+| `--profile` | | Load a configuration profile from `pyproject.toml` or `behave.ini`. |
 | `--retries` | | Number of retries for failed scenarios. Requires `behave-retry`. |
 | `--parallel` | `-n` | Number of parallel processes. Requires `behave-pool`. |
 | `--format` | | Output format passed to `behave`. |
@@ -213,7 +213,7 @@ behave-runner report generate [OPTIONS] [FEATURES]...
 | ------ | ----------- |
 | `[FEATURES]...` | Feature paths. Defaults to `features/`. |
 | `--format` | Report format: `console`, `html`, `md`, `json`, `sheets`, `file`. Default: `console`. |
-| `--output` | Output directory for reports. |
+| `--output` | Output directory for reports. Default: `reports` for non-console formats. |
 
 ### report show
 
@@ -363,8 +363,9 @@ behave-runner config set KEY VALUE
 ```
 
 Set a configuration value in `[tool.behave-runner]`. Supports dotted notation
-for nested keys (e.g. `profiles.ci.parallel`). Values are parsed as integer,
-boolean, or string.
+for nested keys (e.g. `profiles.ci.parallel` — the value is written inside
+the matching subtable if one exists). Values accept TOML syntax for lists,
+quoted strings, numbers, and booleans (e.g. `["@smoke", "@fast"]`).
 
 ## open
 

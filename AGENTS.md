@@ -15,8 +15,9 @@ while working on the codebase.
 python -m build
 ```
 
-Builds `behave_runner-1.0.1.tar.gz` and `behave_runner-1.0.1-py3-none-any.whl`
-in `dist/`.
+Builds `behave_runner-<version>.tar.gz` and `behave_runner-<version>-py3-none-any.whl`
+in `dist/`. The version is read dynamically from `behave_runner/__init__.py`
+via `[tool.hatch.version]`, so it always matches `__version__`.
 
 ## Lint / Type Checking
 
@@ -52,7 +53,7 @@ Bandit is configured via `[tool.bandit]` in `pyproject.toml` and excludes the
 ## Coverage
 
 The project targets 90% coverage. As of the latest audit, the non-e2e test suite
-reaches ~95% coverage with 287 passed tests.
+reaches ~95% coverage with 528 passed tests.
 
 ## Notable Architecture
 

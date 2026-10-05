@@ -22,11 +22,12 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: pip
+          cache-dependency-path: pyproject.toml
       - run: pip install -e ".[dev]"
       - run: ruff check .
       - run: ruff format --check .
@@ -35,11 +36,12 @@ jobs:
   security:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: pip
+          cache-dependency-path: pyproject.toml
       - run: pip install -e ".[dev]"
       - run: bandit -r behave_runner -c pyproject.toml
       - run: pip-audit --strict --desc
@@ -51,14 +53,15 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
         python-version: ["3.11", "3.12", "3.13", "3.14"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
+          cache-dependency-path: pyproject.toml
       - run: pip install -e ".[dev]"
       - run: pytest --cov=behave_runner --cov-report=xml -m "not e2e_web and not e2e_api"
-      - uses: codecov/codecov-action@v5
+      - uses: codecov/codecov-action@v7
         with:
           files: ./coverage.xml
           fail_ci_if_error: false
@@ -93,7 +96,7 @@ test:
   image: python:3.13
   script:
     - pip install -e ".[dev]"
-    - pytest --cov=behave_runner --cov-report=term-missing
+    - pytest --cov=behave_runner --cov-report=term-missing -m "not e2e_web and not e2e_api"
   coverage: '/TOTAL.*? (\d+)%/'
 ```
 
@@ -123,7 +126,7 @@ pipeline {
 
         stage('Test') {
             steps {
-                sh '.venv/bin/pytest --cov=behave_runner'
+                sh '.venv/bin/pytest --cov=behave_runner -m "not e2e_web and not e2e_api"'
             }
         }
     }

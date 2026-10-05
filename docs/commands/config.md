@@ -40,8 +40,8 @@ behave-runner config set KEY VALUE
 
 | Argument | Type | Default | Description |
 | --- | --- | --- | --- |
-| `KEY` | TEXT | required | Configuration key to set. Supports dotted notation (e.g. `profiles.ci.parallel`). |
-| `VALUE` | TEXT | required | Value to assign. Parsed as integer, boolean, or string. |
+| `KEY` | TEXT | required | Configuration key to set. Supports dotted notation (e.g. `profiles.ci.parallel` — written inside the matching subtable if one exists). |
+| `VALUE` | TEXT | required | Value to assign. Accepts TOML syntax: lists (`["@smoke", "@fast"]`), quoted strings, numbers, booleans. |
 
 ## Examples
 
@@ -55,7 +55,7 @@ behave-runner config init
 # Set a value
 behave-runner config set parallel 4
 behave-runner config set format json
-behave-runner config set tags "[@smoke, @fast]"
+behave-runner config set tags '["@smoke", "@fast"]'
 
 # Set a profile value using dotted notation
 behave-runner config set profiles.ci.parallel 8

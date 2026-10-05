@@ -11,7 +11,7 @@ Each library is an independent package that can be used on its own, but
 | Library | Category | Purpose | Extra |
 | --- | --- | --- | --- |
 | [behave](https://github.com/behave/behave) | Core | BDD framework. | included |
-| [behave-kit](https://github.com/MathiasPaulenko/behave-kit) | Core | Timeouts and config profiles. | included |
+| [behave-kit](https://github.com/MathiasPaulenko/behave-kit) | Core | Testing utilities: timeouts, fixtures, hooks. | included |
 | [behave-model](https://github.com/MathiasPaulenko/behave-model) | Core | Feature and scenario parsing. | included |
 | [behave-pool](https://github.com/MathiasPaulenko/behave-pool) | Execution | Parallel and sharded runs. | parallel |
 | [behave-priority](https://github.com/MathiasPaulenko/behave-priority) | Execution | Priority ordering and smoke flags. | priority |
@@ -50,11 +50,13 @@ your flags and delegates execution to it.
 
 ### [behave-kit](https://github.com/MathiasPaulenko/behave-kit)
 
-Provides per-scenario timeouts and configuration profile helpers.
-`behave-runner` uses it to enforce `--scenario-timeout` and to load
-named profiles from `pyproject.toml` or `behave.ini`.
+A toolkit for Behave projects: per-scenario timeouts, fixtures, hooks, and
+shared test helpers. `behave-runner` enforces `--scenario-timeout` through
+it via the `BEHAVE_SCENARIO_TIMEOUT` environment variable. Configuration
+profiles in `pyproject.toml` or `behave.ini` are loaded by `behave-runner`
+itself, not by `behave-kit`.
 
-**Used by:** `run` (`--scenario-timeout`, `--profile`), `watch` (`--profile`, `--scenario-timeout`)
+**Used by:** `run` (`--scenario-timeout`), `watch` (`--scenario-timeout`)
 
 ### [behave-model](https://github.com/MathiasPaulenko/behave-model)
 
@@ -76,9 +78,10 @@ and retried during a run.
 
 Enables parallel test execution with worker processes. Supports
 distribution schemes (`scenario`, `feature`), load-balancing strategies
-(`lpt`, `round`), and CI sharding (`--shard i/n`). When `--parallel` is
-set, `behave-runner` delegates to `behave-pool` instead of running
-`behave` directly.
+(`lpt`, `round`), and CI sharding (`--shard i/n`). When `behave-pool` is
+installed, it registers the `--parallel` family of flags on `behave` and
+`behave-runner` forwards them; without it, the flags are ignored with a
+warning and the run proceeds sequentially.
 
 **Used by:** `run` (`--parallel`, `--shard`, `--parallel-scheme`, `--parallel-balance`, `--parallel-timing-file`), `watch` (`--parallel`)
 
@@ -336,7 +339,7 @@ pip install "behave-runner[report-sheets]"
 
 ### [behave-modern-file-report](https://github.com/MathiasPaulenko/behave-modern-file-report)
 
-Generates a plain-text file report for archival or log ingestion.
+Generates a DOCX report file for archival or sharing with stakeholders.
 
 **Used by:** `report generate --format file`
 
