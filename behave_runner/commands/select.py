@@ -11,8 +11,10 @@ from rich.console import Console
 from rich.table import Table
 
 from behave_runner.core.features import collect_scenarios
+from behave_runner.utils import make_stdout_safe
 
 console = Console()
+err_console = Console(stderr=True)
 
 
 def select_command(
@@ -34,7 +36,7 @@ def select_command(
     """Select scenarios with advanced filtering."""
     valid_formats = {"text", "names", "json"}
     if fmt not in valid_formats:
-        console.print(
+        err_console.print(
             f"[red]Unknown format: '{fmt}'. Choose from: {', '.join(sorted(valid_formats))}[/red]"
         )
         raise typer.Exit(2)
@@ -45,13 +47,14 @@ def select_command(
         try:
             re.compile(pattern)
         except re.error as e:
-            console.print(f"[red]Invalid regex pattern: {e}[/red]")
+            err_console.print(f"[red]Invalid regex pattern: {e}[/red]")
             raise typer.Exit(2) from e
 
     scenarios = collect_scenarios(
         feature_paths, tags=tags, pattern=pattern, feature_name=feature_name
     )
 
+    make_stdout_safe()
     if fmt == "json":
         print(json.dumps(scenarios, indent=2))
     elif fmt == "names":

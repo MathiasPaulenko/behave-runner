@@ -12,7 +12,7 @@ from behave_runner.core.config import load_defaults, load_profile
 from behave_runner.core.orchestrator import RunConfig, run, validate_shard
 from behave_runner.exceptions import ConfigError
 
-console_err = Console()
+console_err = Console(stderr=True)
 
 
 def run_command(
@@ -76,10 +76,6 @@ def run_command(
     """Run behave tests with native and optional flags."""
     if smoke:
         tags = [*tags, "@smoke"]
-
-    if flaky_report and (retries is None or retries == 0):
-        console_err.print("[yellow]--flaky-report requires --retries > 0. Ignoring.[/yellow]")
-        flaky_report = False
 
     try:
         # Base [tool.behave-runner] values are the project-wide defaults;

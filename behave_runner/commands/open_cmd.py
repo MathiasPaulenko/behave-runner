@@ -11,7 +11,7 @@ from rich.console import Console
 from behave_runner.core.deps import check_optional, run_external
 from behave_runner.core.output import open_latest_report
 
-console = Console()
+err_console = Console(stderr=True)
 
 TargetType = Literal["report", "trace"]
 
@@ -39,7 +39,8 @@ def open_command(
 
 def _open_report(output: Path) -> None:
     """Find and open the latest report in the browser."""
-    open_latest_report(output)
+    if not open_latest_report(output):
+        raise typer.Exit(1)
 
 
 def _open_trace(output: Path) -> None:
@@ -60,7 +61,7 @@ def _open_trace(output: Path) -> None:
     if trace_file is not None:
         cmd.append(str(trace_file))
     else:
-        console.print(
+        err_console.print(
             "[yellow]Warning: trace.json not found. Run with --trace to generate one.[/yellow]"
         )
 

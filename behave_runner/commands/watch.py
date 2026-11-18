@@ -15,6 +15,7 @@ from behave_runner.core.watcher import FileWatcher
 from behave_runner.exceptions import ConfigError
 
 console = Console()
+err_console = Console(stderr=True)
 
 _DEFAULT_PATHS = [
     Path("features"),
@@ -47,19 +48,19 @@ def _make_callback(
                 **config_overrides,  # type: ignore[arg-type]
             )
         except (ValueError, TypeError) as e:
-            console.print(f"[red]Error: {e}[/red]")
+            err_console.print(f"[red]Error: {e}[/red]")
             return
         exit_code = run(config)
         if exit_code == 0:
             console.print("[green]All tests passed.[/green]")
         else:
-            console.print(f"[red]Tests failed (exit {exit_code}).[/red]")
+            err_console.print(f"[red]Tests failed (exit {exit_code}).[/red]")
 
     return on_change
 
 
 def watch_command(
-    features: list[str] = typer.Argument(
+    features: list[Path] = typer.Argument(
         default=None,
         help="Feature paths to watch and run.",
     ),
@@ -93,7 +94,7 @@ def watch_command(
 ) -> None:
     """Watch for file changes and re-run tests automatically."""
     if debounce < 0:
-        console.print("[red]Error: --debounce must be a non-negative integer.[/red]")
+        err_console.print("[red]Error: --debounce must be a non-negative integer.[/red]")
         raise typer.Exit(2)
 
     try:
@@ -103,12 +104,12 @@ def watch_command(
         if profile is not None:
             profile_config.update(load_profile(profile))
     except ConfigError as e:
-        console.print(f"[red]Error: {e}[/red]")
+        err_console.print(f"[red]Error: {e}[/red]")
         raise typer.Exit(2) from e
 
     # Features: CLI takes priority, then profile, then default
     if features:
-        feature_paths = list(features)
+        feature_paths = [str(f) for f in features]
     else:
         profile_features = profile_config.get("features", [])
         feature_paths = (
@@ -187,25 +188,46 @@ def watch_command(
         p_flaky = config_overrides.get("flaky_report", False)
         p_retries = config_overrides.get("retries")
         if p_flaky and (p_retries is None or p_retries == 0):
-            console.print("[yellow]--flaky-report requires --retries > 0. Ignoring.[/yellow]")
+            err_console.print("[yellow]--flaky-report requires --retries > 0. Ignoring.[/yellow]")
             config_overrides.pop("flaky_report", None)
 
         # Validate shard format (same as run.py)
         p_shard = config_overrides.get("shard")
         if p_shard is not None:
             if not isinstance(p_shard, str):
-                console.print(
+                err_console.print(
                     f"[red]Invalid shard: must be a string like '1/3', got {p_shard!r}[/red]"
                 )
                 raise typer.Exit(2)
             try:
                 validate_shard(p_shard)
             except ValueError as e:
-                console.print(f"[red]{e}[/red]")
+                err_console.print(f"[red]{e}[/red]")
                 raise typer.Exit(2) from e
 
+    # Fail fast on invalid merged values (e.g. parallel = -1 from a profile)
+    # instead of starting the watcher and erroring on every change.
+    try:
+        RunConfig(features=feature_paths, tags=tags, **config_overrides)  # type: ignore[arg-type]
+    except (ValueError, TypeError) as e:
+        err_console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(2) from e
+
+    # Never react to artifacts produced by the run itself — writing
+    # trace.json or the outfile inside a watched tree would loop forever.
+    artifact_paths: set[Path] = {Path("trace.json").resolve()}
+    outfile = config_overrides.get("outfile")
+    if isinstance(outfile, str) and outfile:
+        artifact_paths.add(Path(outfile).resolve())
+
+    def _ignore_artifacts(p: Path) -> bool:
+        try:
+            return p.resolve() in artifact_paths
+        except OSError:
+            return False
+
     on_change = _make_callback(feature_paths, tags, pattern, config_overrides)
-    watcher = FileWatcher(watch_paths, on_change, debounce_ms=debounce)
+    watcher = FileWatcher(watch_paths, on_change, debounce_ms=debounce, ignore=_ignore_artifacts)
 
     console.print("[cyan]Watching for changes... (Ctrl+C to stop)[/cyan]")
     console.print(f"[cyan]Paths: {', '.join(str(p) for p in watch_paths)}[/cyan]")

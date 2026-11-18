@@ -3,11 +3,8 @@
 from __future__ import annotations
 
 import typer
-from rich.console import Console
 
 from behave_runner.core.deps import check_optional, run_external
-
-console = Console()
 
 generate_app = typer.Typer(
     name="generate",

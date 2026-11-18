@@ -7,10 +7,11 @@ from pathlib import Path
 import typer
 from rich.console import Console
 
-from behave_runner.core.orchestrator import RunConfig, run
+from behave_runner.core.deps import is_installed
+from behave_runner.core.orchestrator import RunConfig, report_formatter_package, run
 from behave_runner.core.output import ensure_output_dir, open_latest_report
 
-console = Console()
+err_console = Console(stderr=True)
 
 report_app = typer.Typer(
     name="report",
@@ -46,10 +47,27 @@ def report_command(
     """
     valid_formats = {"console", "html", "md", "json", "sheets", "file"}
     if fmt not in valid_formats:
-        console.print(
+        err_console.print(
             f"[red]Unknown format: '{fmt}'. Choose from: {', '.join(sorted(valid_formats))}[/red]"
         )
         raise typer.Exit(2)
+
+    # Formats provided by optional behave-modern-*-report packages cannot
+    # run without them — fail early instead of passing an unknown --format
+    # to behave. 'json' is exempt: behave has a built-in json formatter.
+    package = report_formatter_package(fmt)
+    if package is not None and not is_installed(package):
+        if fmt == "json":
+            err_console.print(
+                f"[yellow]Warning: {package} not installed; "
+                "using behave's built-in json formatter instead.[/yellow]"
+            )
+        else:
+            err_console.print(
+                f"[red]Error: report format '{fmt}' requires {package}. "
+                f"Install with: pip install behave-runner[report-{fmt}][/red]"
+            )
+            raise typer.Exit(2)
 
     # Non-console formats write to reports/ by default so that
     # `report show` / `open` find them without extra flags.
@@ -57,7 +75,11 @@ def report_command(
         output = Path("reports")
 
     if output is not None:
-        ensure_output_dir(output)
+        try:
+            ensure_output_dir(output)
+        except OSError as e:
+            err_console.print(f"[red]Error: {e}[/red]")
+            raise typer.Exit(2) from e
 
     # Build the output file path from the output directory and format
     # Console formatter outputs to terminal — no outfile needed
@@ -93,4 +115,5 @@ def report_show(
     ),
 ) -> None:
     """Open the latest report in the browser."""
-    open_latest_report(output)
+    if not open_latest_report(output):
+        raise typer.Exit(1)

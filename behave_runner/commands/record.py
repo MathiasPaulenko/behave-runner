@@ -11,6 +11,7 @@ from rich.console import Console
 from behave_runner.core.deps import check_optional, resolve_executable, run_external
 
 console = Console()
+err_console = Console(stderr=True)
 
 
 def record_command(
@@ -33,13 +34,17 @@ def record_command(
 ) -> None:
     """Record a browser session with wavexis and generate behave steps."""
     if not name.strip() or Path(name).name != name.strip():
-        console.print("[red]Error: --name must be a simple file name.[/red]")
+        err_console.print("[red]Error: --name must be a simple file name.[/red]")
         raise typer.Exit(2)
 
     if not check_optional("record", "wavexis", "record"):
         raise typer.Exit(2)
 
-    output.mkdir(parents=True, exist_ok=True)
+    try:
+        output.mkdir(parents=True, exist_ok=True)
+    except OSError as e:
+        err_console.print(f"[red]Error: cannot create output directory {output}: {e}[/red]")
+        raise typer.Exit(2) from e
     recording_path = output / f"{name}.yaml"
 
     console.print(f"[cyan]Starting wavexis recording -> {recording_path}[/cyan]")
@@ -54,22 +59,25 @@ def record_command(
     try:
         result = subprocess.run(cmd, check=False)  # noqa: S603  # nosec B603
     except FileNotFoundError:
-        console.print(
-            "[red]Error: wavexis not found. Install with: pip install behave-runner[record][/red]"
+        # wavexis already passed the import check — the console script
+        # itself is missing, i.e. a broken install.
+        err_console.print(
+            "[red]Error: wavexis console script not found. "
+            "Reinstall with: pip install --force-reinstall wavexis[/red]"
         )
         raise typer.Exit(2) from None
     except OSError as e:
-        console.print(f"[red]Error running wavexis: {e}[/red]")
+        err_console.print(f"[red]Error running wavexis: {e}[/red]")
         raise typer.Exit(2) from None
 
     if result.returncode != 0:
-        console.print(f"[red]Recording failed with exit code {result.returncode}[/red]")
+        err_console.print(f"[red]Recording failed with exit code {result.returncode}[/red]")
         raise typer.Exit(result.returncode)
 
     console.print(f"[green]Recording saved: {recording_path}[/green]")
 
     if not check_optional("gen", "behave_gen", "generate"):
-        console.print(
+        err_console.print(
             "[yellow]Warning: behave-gen not installed. Skipping step generation.[/yellow]"
         )
         raise typer.Exit(0)

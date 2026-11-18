@@ -5,17 +5,36 @@ from __future__ import annotations
 import json
 import re
 import subprocess  # nosec B404
+from pathlib import Path
 
 import typer
 from rich.console import Console
+from rich.markup import escape
 
 from behave_runner.core.deps import check_optional, resolve_executable
 from behave_runner.core.orchestrator import RunConfig, run
 
 console = Console()
+err_console = Console(stderr=True)
 
 
 VALID_FORMATS = {"text", "json", "sarif"}
+
+
+def _resolve_features_path(path: str) -> str:
+    """Resolve the behave features path for a scanned project root.
+
+    Behave locates step definitions relative to the features directory, so
+    passing a project root only works when steps live at ``<root>/steps``.
+    For the conventional ``<root>/features`` layout the features directory
+    must be passed instead.
+    """
+    root = Path(path)
+    if root.is_dir():
+        features_dir = root / "features"
+        if features_dir.is_dir():
+            return str(features_dir)
+    return path
 
 
 def impact_command(
@@ -27,7 +46,7 @@ def impact_command(
 ) -> None:
     """Detect scenarios affected by code changes using behave-doctor."""
     if fmt not in VALID_FORMATS:
-        console.print(
+        err_console.print(
             f"[red]Unknown format: '{fmt}'. Choose from: {', '.join(sorted(VALID_FORMATS))}[/red]"
         )
         raise typer.Exit(2)
@@ -44,28 +63,47 @@ def impact_command(
             cmd, check=False, capture_output=run_affected, text=True
         )
     except FileNotFoundError:
-        console.print(
-            "[red]Error: behave-doctor not found. Install with: pip install behave-doctor[/red]"
+        # The package already passed the import check — the console script
+        # itself is missing, i.e. a broken install.
+        err_console.print(
+            "[red]Error: behave-doctor console script not found. "
+            "Reinstall with: pip install --force-reinstall behave-doctor[/red]"
         )
         raise typer.Exit(2) from None
     except OSError as e:
-        console.print(f"[red]Error running behave-doctor: {e}[/red]")
+        err_console.print(f"[red]Error running behave-doctor: {e}[/red]")
         raise typer.Exit(2) from None
 
     if run_affected:
         if result.returncode != 0:
+            # Show the captured diagnostics — both streams were captured
+            # for parsing and would otherwise be lost. escape() prevents
+            # Rich markup in tool output from crashing the re-print.
+            if result.stdout:
+                console.print(escape(result.stdout))
+            if result.stderr:
+                err_console.print(escape(result.stderr))
             raise typer.Exit(result.returncode)
-        names = _extract_scenario_names(result.stdout)
+        names = list(dict.fromkeys(_extract_scenario_names(result.stdout)))
         if names:
+            features_path = _resolve_features_path(path)
             console.print(f"[cyan]Running {len(names)} affected scenarios...[/cyan]")
             worst_exit = 0
             for name in names:
                 escaped_name = re.escape(name)
-                config = RunConfig(features=[path], name=[escaped_name])
+                config = RunConfig(features=[features_path], name=[escaped_name])
                 exit_code = run(config)
                 if exit_code != 0:
                     worst_exit = exit_code
             raise typer.Exit(worst_exit)
+        if result.stdout.strip():
+            # Non-empty output that yielded no names usually means the
+            # JSON failed to parse — a silent exit 0 would look like
+            # "no changes" to CI.
+            err_console.print(
+                "[yellow]Warning: could not parse behave-doctor output; "
+                "no scenarios extracted.[/yellow]"
+            )
         console.print("[yellow]No affected scenarios to run.[/yellow]")
         raise typer.Exit(result.returncode)
 
@@ -98,11 +136,9 @@ def _extract_scenario_names(stdout: str) -> list[str]:
         for item in items:
             if not isinstance(item, dict):
                 continue
-            name = item.get("scenario") or item.get("name")
-            if not name:
-                meta = item.get("metadata", {})
-                if isinstance(meta, dict):
-                    name = meta.get("scenario")
+            meta = item.get("metadata", {})
+            meta_name = meta.get("scenario") if isinstance(meta, dict) else None
+            name = item.get("scenario") or meta_name or item.get("name")
             if isinstance(name, str) and name:
                 names.append(name)
     return names
