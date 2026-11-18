@@ -53,7 +53,7 @@ Bandit is configured via `[tool.bandit]` in `pyproject.toml` and excludes the
 ## Coverage
 
 The project targets 90% coverage. As of the latest audit, the non-e2e test suite
-reaches ~95% coverage with 528 passed tests.
+reaches ~90% coverage with 612 passed tests.
 
 ## Notable Architecture
 
@@ -74,3 +74,15 @@ reaches ~95% coverage with 528 passed tests.
   `int`/`bool`/`list` before constructing `RunConfig`.
 - `subprocess.run` calls use list arguments and `shell=False`; `# nosec` is used
   to suppress bandit B404/B603/B607 findings after manual review.
+- behave 1.3.x has no `--timeout` flag; the global `timeout` in `RunConfig` is
+  enforced as a `subprocess.run` timeout, not forwarded to behave.
+- behave-specific env vars (`BEHAVE_SCENARIO_TIMEOUT`, etc.) are injected via
+  a copied environment dict passed to `subprocess.run` — never mutate
+  `os.environ` (concurrent runs would race/leak).
+- Optional `behave-*` tools are importable but their console scripts may live
+  in user-site script dirs (`%APPDATA%\Python\PythonXY\Scripts`, `~/.local/bin`)
+  — always launch them through `resolve_executable`, never by bare name.
+- Error and diagnostic output goes to `Console(stderr=True)`; stdout is
+  reserved for results (JSON output of `select`, report paths, etc.).
+- `CliRunner` results expose separate `result.stdout` / `result.stderr` /
+  `result.output` (combined); assert diagnostics against `result.output`.
