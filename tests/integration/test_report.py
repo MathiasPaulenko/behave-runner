@@ -21,7 +21,10 @@ runner = CliRunner()
 def test_report_generate_format(fmt: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Test each report format builds correct RunConfig."""
     monkeypatch.chdir(tmp_path)  # non-console formats create ./reports
-    with patch("behave_runner.commands.report.run", return_value=0) as mock_run:
+    with (
+        patch("behave_runner.commands.report.run", return_value=0) as mock_run,
+        patch("behave_runner.commands.report.is_installed", return_value=True),
+    ):
         result = runner.invoke(
             app, ["report", "generate", "--format", fmt, "tests/fixtures/minimal"]
         )
@@ -35,7 +38,10 @@ def test_report_generate_format(fmt: str, tmp_path: Path, monkeypatch: pytest.Mo
 
 def test_report_generate_default_features() -> None:
     """Test report generate with no features uses 'features'."""
-    with patch("behave_runner.commands.report.run", return_value=0) as mock_run:
+    with (
+        patch("behave_runner.commands.report.run", return_value=0) as mock_run,
+        patch("behave_runner.commands.report.is_installed", return_value=True),
+    ):
         result = runner.invoke(app, ["report", "generate"])
     assert result.exit_code == 0
     config = mock_run.call_args[0][0]
@@ -44,7 +50,10 @@ def test_report_generate_default_features() -> None:
 
 def test_report_generate_default_format() -> None:
     """Test default format is console."""
-    with patch("behave_runner.commands.report.run", return_value=0) as mock_run:
+    with (
+        patch("behave_runner.commands.report.run", return_value=0) as mock_run,
+        patch("behave_runner.commands.report.is_installed", return_value=True),
+    ):
         result = runner.invoke(app, ["report", "generate"])
     assert result.exit_code == 0
     config = mock_run.call_args[0][0]
@@ -83,7 +92,10 @@ def test_report_generate_outfile_per_format(tmp_path: Path) -> None:
         "file": "report.docx",
     }
     for fmt, filename in cases.items():
-        with patch("behave_runner.commands.report.run", return_value=0) as mock_run:
+        with (
+            patch("behave_runner.commands.report.run", return_value=0) as mock_run,
+            patch("behave_runner.commands.report.is_installed", return_value=True),
+        ):
             runner.invoke(
                 app,
                 ["report", "generate", "--format", fmt, "--output", str(out)],
@@ -96,7 +108,10 @@ def test_report_generate_outfile_per_format(tmp_path: Path) -> None:
 def test_report_generate_console_no_outfile(tmp_path: Path) -> None:
     """Test console format does not set outfile even with --output."""
     out = tmp_path / "reports"
-    with patch("behave_runner.commands.report.run", return_value=0) as mock_run:
+    with (
+        patch("behave_runner.commands.report.run", return_value=0) as mock_run,
+        patch("behave_runner.commands.report.is_installed", return_value=True),
+    ):
         runner.invoke(
             app,
             ["report", "generate", "--format", "console", "--output", str(out)],
@@ -119,7 +134,10 @@ def test_report_generate_no_output_defaults_to_reports(
 
 def test_report_generate_propagates_exit_code() -> None:
     """Test non-zero exit code from run() is propagated."""
-    with patch("behave_runner.commands.report.run", return_value=1):
+    with (
+        patch("behave_runner.commands.report.run", return_value=1),
+        patch("behave_runner.commands.report.is_installed", return_value=True),
+    ):
         result = runner.invoke(app, ["report", "generate"])
     assert result.exit_code == 1
 
@@ -128,11 +146,11 @@ def test_report_generate_propagates_exit_code() -> None:
 
 
 def test_report_show_no_reports(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test report show when no reports exist."""
+    """Test report show when no reports exist exits 1."""
     monkeypatch.chdir(tmp_path)
     result = runner.invoke(app, ["report", "show"])
-    assert result.exit_code == 0
-    assert "No reports" in result.stdout
+    assert result.exit_code == 1
+    assert "No reports" in result.output
 
 
 def test_report_show_with_report(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

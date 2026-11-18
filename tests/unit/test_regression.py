@@ -121,7 +121,7 @@ def test_select_invalid_regex_returns_error() -> None:
         app, ["select", "--pattern", "[invalid", "tests/fixtures/minimal/features"]
     )
     assert result.exit_code == 2
-    assert "Invalid regex pattern" in result.stdout
+    assert "Invalid regex pattern" in result.output
 
 
 # --- Regression: watcher detects deleted files ---
@@ -274,20 +274,23 @@ def test_matches_tags_include_and_exclude() -> None:
 
 def test_run_passes_env_vars_for_retries(monkeypatch) -> None:
     """Ensure run() passes env vars (scenario_timeout, retries) to subprocess."""
-    import subprocess
-
     from behave_runner.core import orchestrator
 
     captured_env: dict[str, str] = {}
 
-    class FakeResult:
-        returncode = 0
+    class FakePopen:
+        def __init__(self, cmd, **kwargs):
+            captured_env.update(kwargs.get("env", {}))
+            self.returncode = 0
+            self.pid = 1
 
-    def fake_run(cmd, **kwargs):
-        captured_env.update(kwargs.get("env", {}))
-        return FakeResult()
+        def wait(self, timeout=None):
+            return self.returncode
 
-    monkeypatch.setattr(subprocess, "run", fake_run)
+        def kill(self):
+            pass
+
+    monkeypatch.setattr(orchestrator.subprocess, "Popen", FakePopen)
 
     config = RunConfig(scenario_timeout=42, retries=3)
     orchestrator.run(config)
@@ -377,15 +380,90 @@ def test_format_value_handles_list() -> None:
     assert _format_value([]) == "[]"
 
 
-# --- Regression: --timeout passed as native behave CLI flag, not env var ---
+# --- Regression: timeout is a subprocess timeout, not a behave CLI flag ---
 
 
-def test_timeout_in_behave_command() -> None:
-    """Ensure --timeout is passed to behave as a native CLI flag."""
+def test_timeout_not_in_behave_command() -> None:
+    """Ensure --timeout is NOT passed to behave (behave has no --timeout flag)."""
     config = RunConfig(timeout=30)
     cmd = build_behave_command(config)
-    assert "--timeout" in cmd
-    assert "30" in cmd
+    assert "--timeout" not in cmd
+
+
+def test_timeout_passed_to_subprocess(monkeypatch) -> None:
+    """Ensure run() enforces timeout as a subprocess timeout."""
+    from behave_runner.core import orchestrator
+
+    config = RunConfig(timeout=30)
+    captured = {}
+
+    class FakePopen:
+        def __init__(self, cmd, **kwargs):
+            self.returncode = 0
+            self.pid = 1
+
+        def wait(self, timeout=None):
+            captured["timeout"] = timeout
+            return self.returncode
+
+        def kill(self):
+            pass
+
+    monkeypatch.setattr(orchestrator.subprocess, "Popen", FakePopen)
+    orchestrator.run(config)
+    assert captured["timeout"] == 30
+
+
+def test_timeout_zero_means_no_subprocess_timeout(monkeypatch) -> None:
+    """Ensure timeout=0 maps to no subprocess timeout (not an instant kill)."""
+    from behave_runner.core import orchestrator
+
+    config = RunConfig(timeout=0)
+    captured = {}
+
+    class FakePopen:
+        def __init__(self, cmd, **kwargs):
+            self.returncode = 0
+            self.pid = 1
+
+        def wait(self, timeout=None):
+            captured["timeout"] = timeout
+            return self.returncode
+
+        def kill(self):
+            pass
+
+    monkeypatch.setattr(orchestrator.subprocess, "Popen", FakePopen)
+    orchestrator.run(config)
+    assert captured["timeout"] is None
+
+
+def test_timeout_expired_returns_124(monkeypatch) -> None:
+    """Ensure a timed-out behave run exits with 124 (timeout convention)."""
+    import subprocess as subprocess_module
+
+    from behave_runner.core import orchestrator
+
+    config = RunConfig(timeout=5)
+
+    class FakePopen:
+        def __init__(self, cmd, **kwargs):
+            self.returncode = 0
+            self.pid = 1
+            self._waits = 0
+
+        def wait(self, timeout=None):
+            self._waits += 1
+            if timeout is not None:
+                raise subprocess_module.TimeoutExpired(cmd="behave", timeout=timeout)
+            return self.returncode
+
+        def kill(self):
+            pass
+
+    monkeypatch.setattr(orchestrator.subprocess, "Popen", FakePopen)
+    monkeypatch.setattr(orchestrator, "_kill_process_tree", lambda proc: None)
+    assert orchestrator.run(config) == 124
 
 
 def test_max_failures_not_in_behave_command() -> None:
@@ -435,14 +513,19 @@ def test_run_does_not_set_timeout_env_var(monkeypatch) -> None:
     config = RunConfig(timeout=99)
     captured = {}
 
-    class FakeResult:
-        returncode = 0
+    class FakePopen:
+        def __init__(self, cmd, env=None, **kwargs):
+            captured["BEHAVE_TIMEOUT"] = os_module.environ.get("BEHAVE_TIMEOUT")
+            self.returncode = 0
+            self.pid = 1
 
-    def capture_env(cmd, env=None, **kwargs):
-        captured["BEHAVE_TIMEOUT"] = os_module.environ.get("BEHAVE_TIMEOUT")
-        return FakeResult()
+        def wait(self, timeout=None):
+            return self.returncode
 
-    monkeypatch.setattr(orchestrator.subprocess, "run", capture_env)
+        def kill(self):
+            pass
+
+    monkeypatch.setattr(orchestrator.subprocess, "Popen", FakePopen)
     orchestrator.run(config)
     assert captured["BEHAVE_TIMEOUT"] is None
 
@@ -869,7 +952,7 @@ def test_profile_invalid_shard_rejected(tmp_path: Path, monkeypatch) -> None:
     cli_runner = CliRunner()
     result = cli_runner.invoke(app, ["run", "--profile", "ci"])
     assert result.exit_code == 2
-    assert "Invalid shard" in result.stdout
+    assert "Invalid shard" in result.output
 
 
 def test_profile_non_string_shard_rejected(tmp_path: Path, monkeypatch) -> None:
@@ -891,7 +974,7 @@ def test_profile_non_string_shard_rejected(tmp_path: Path, monkeypatch) -> None:
     cli_runner = CliRunner()
     result = cli_runner.invoke(app, ["run", "--profile", "ci"])
     assert result.exit_code == 2
-    assert "Invalid shard" in result.stdout
+    assert "Invalid shard" in result.output
 
 
 # --- Regression: run() should only save/restore behave-specific env vars ---
@@ -978,7 +1061,7 @@ def test_select_rejects_invalid_format(tmp_path: Path, monkeypatch) -> None:
     cli_runner = CliRunner()
     result = cli_runner.invoke(app, ["select", "--format", "xml", "features"])
     assert result.exit_code == 2
-    assert "Unknown format" in result.stdout
+    assert "Unknown format" in result.output
 
 
 def test_list_rejects_invalid_format(tmp_path: Path, monkeypatch) -> None:
@@ -991,7 +1074,7 @@ def test_list_rejects_invalid_format(tmp_path: Path, monkeypatch) -> None:
     cli_runner = CliRunner()
     result = cli_runner.invoke(app, ["list", "--format", "xml", "features"])
     assert result.exit_code == 2
-    assert "Unknown format" in result.stdout
+    assert "Unknown format" in result.output
 
 
 # --- Regression: _parse_value should strip whitespace from strings ---
@@ -1104,7 +1187,7 @@ def test_flaky_report_with_profile_retries_zero(tmp_path: Path, monkeypatch) -> 
     with patch("behave_runner.commands.run.run", return_value=0):
         result = cli_runner.invoke(app, ["run", "--flaky-report", "--profile", "ci"])
     assert result.exit_code == 0
-    assert "requires --retries" in result.stdout
+    assert "requires --retries" in result.output
 
 
 # --- Regression: load_config should handle non-UTF-8 behave.ini ---
@@ -1276,7 +1359,7 @@ def test_config_set_catches_config_error(tmp_path: Path, monkeypatch) -> None:
     ):
         result = cli_runner.invoke(app, ["config", "set", "parallel", "8"])
     assert result.exit_code == 2
-    assert "forced failure" in result.stdout
+    assert "forced failure" in result.output
     # File should be unchanged
     assert "parallel = 2" in p.read_text()
 
@@ -1345,7 +1428,7 @@ def test_watch_negative_debounce_rejected(tmp_path: Path, monkeypatch) -> None:
     cli_runner = CliRunner()
     result = cli_runner.invoke(app, ["watch", "--debounce", "-1"])
     assert result.exit_code == 2
-    assert "debounce" in result.stdout.lower()
+    assert "debounce" in result.output.lower()
 
 
 # --- Regression: ensure_output_dir should reject existing file paths ---
@@ -1688,20 +1771,14 @@ def test_watch_profile_smoke_adds_tag(tmp_path: Path, monkeypatch) -> None:
     assert tags.count("@smoke") == 1
 
 
-# --- Regression: timeout=0 should pass --timeout 0 to behave (not silently dropped) ---
+# --- Regression: timeout=0 must not reach behave as a flag ---
 
 
-def test_timeout_zero_passed_to_behave() -> None:
-    """Ensure timeout=0 passes --timeout 0 to behave (means 'no timeout').
-
-    Previously, the condition `timeout > 0` silently dropped timeout=0,
-    causing behave to use its default 5-second timeout instead of no timeout.
-    """
+def test_timeout_zero_not_in_behave_command() -> None:
+    """Ensure timeout=0 does not emit a --timeout flag (behave has none)."""
     config = RunConfig(timeout=0)
     cmd = build_behave_command(config)
-    assert "--timeout" in cmd
-    timeout_idx = cmd.index("--timeout")
-    assert cmd[timeout_idx + 1] == "0"
+    assert "--timeout" not in cmd
 
 
 def test_timeout_none_not_in_command() -> None:
@@ -2347,7 +2424,7 @@ def test_watch_merges_base_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
     monkeypatch.chdir(tmp_path)
 
     class _FakeWatcher:
-        def __init__(self, paths, on_change, debounce_ms=500):
+        def __init__(self, paths, on_change, debounce_ms=500, ignore=None):
             self._cb = on_change
 
         def run(self) -> None:
@@ -2549,7 +2626,10 @@ def test_report_generate_console_creates_no_dir(
 ) -> None:
     """The console format prints to stdout and does not create reports/."""
     monkeypatch.chdir(tmp_path)
-    with patch("behave_runner.commands.report.run", return_value=0) as mock_run:
+    with (
+        patch("behave_runner.commands.report.run", return_value=0) as mock_run,
+        patch("behave_runner.commands.report.is_installed", return_value=True),
+    ):
         result = runner.invoke(app, ["report", "generate", "--format", "console"])
     assert result.exit_code == 0
     assert mock_run.call_args[0][0].outfile is None
@@ -2581,3 +2661,856 @@ def test_behave_ini_read_as_utf8(tmp_path: Path) -> None:
     (tmp_path / "behave.ini").write_text("[behave-runner]\nname = café\n", encoding="utf-8")
     config = load_config(tmp_path)
     assert config["name"] == "café"
+
+
+# --- Regression: resolve_executable finds user-site scripts ---
+
+
+def test_resolve_executable_user_scripts(tmp_path: Path, monkeypatch) -> None:
+    r"""resolve_executable should find console scripts in the per-user Scripts dir.
+
+    `pip install --user` puts scripts in %APPDATA%\Python\PythonXY\Scripts
+    or ~/.local/bin, not next to sys.executable and usually not on PATH.
+    """
+    from behave_runner.core import deps
+
+    user_scripts = tmp_path / "user_scripts"
+    user_scripts.mkdir()
+    fake_exe = user_scripts / "behave-doctor.exe"
+    fake_exe.write_text("binary")
+
+    monkeypatch.setattr(deps, "_user_scripts_dir", lambda: user_scripts)
+    resolved = deps.resolve_executable("behave-doctor")
+    assert resolved == str(fake_exe)
+
+
+def test_is_installed_does_not_execute_module(monkeypatch) -> None:
+    """is_installed should use find_spec, not import the module."""
+    import importlib.util as importlib_util
+
+    from behave_runner.core.deps import is_installed
+
+    called = []
+
+    def fake_find_spec(name):
+        called.append(name)
+        return None
+
+    monkeypatch.setattr(importlib_util, "find_spec", fake_find_spec)
+    assert is_installed("whatever") is False
+    assert called == ["whatever"]
+
+
+# --- Regression: run() must not mutate os.environ ---
+
+
+def test_run_does_not_mutate_os_environ(monkeypatch) -> None:
+    """run() should pass behave vars via subprocess env, not os.environ."""
+    import os as os_module
+
+    from behave_runner.core import orchestrator
+
+    monkeypatch.delenv("BEHAVE_RETRY_MAX_RETRIES", raising=False)
+    config = RunConfig(retries=3)
+    captured = {}
+
+    class FakePopen:
+        def __init__(self, cmd, env=None, **kwargs):
+            captured["inside"] = os_module.environ.get("BEHAVE_RETRY_MAX_RETRIES")
+            captured["env_arg"] = env.get("BEHAVE_RETRY_MAX_RETRIES")
+            self.returncode = 0
+            self.pid = 1
+
+        def wait(self, timeout=None):
+            return self.returncode
+
+        def kill(self):
+            pass
+
+    monkeypatch.setattr(orchestrator.subprocess, "Popen", FakePopen)
+    orchestrator.run(config)
+    # The subprocess env carries the var, os.environ was never touched
+    assert captured["env_arg"] == "3"
+    assert captured["inside"] is None
+    assert "BEHAVE_RETRY_MAX_RETRIES" not in os_module.environ
+
+
+# --- Regression: warnings for silently ignored optional features ---
+
+
+def test_retries_without_behave_retry_warns(monkeypatch) -> None:
+    """--retries without behave-retry should warn instead of silently no-op."""
+    monkeypatch.setattr("behave_runner.core.orchestrator.is_installed", lambda p: False)
+    config = RunConfig(retries=2)
+    with pytest.warns(UserWarning, match="behave-retry"):
+        _build_env(config)
+
+
+def test_priority_without_behave_priority_warns(monkeypatch) -> None:
+    """--priority-order without behave-priority should warn."""
+    monkeypatch.setattr("behave_runner.core.orchestrator.is_installed", lambda p: False)
+    config = RunConfig(priority_order=True)
+    with pytest.warns(UserWarning, match="behave-priority"):
+        _build_env(config)
+
+
+def test_shard_without_behave_pool_warns(monkeypatch) -> None:
+    """--shard without behave-pool should warn instead of silently no-op."""
+    monkeypatch.setattr("behave_runner.core.orchestrator._is_package_functional", lambda p: False)
+    config = RunConfig(shard="1/3")
+    with pytest.warns(UserWarning, match="behave-pool"):
+        build_behave_command(config)
+
+
+def test_parallel_extras_without_pool_warn(monkeypatch) -> None:
+    """--parallel-scheme without --parallel > 1 should warn, not vanish."""
+    monkeypatch.setattr("behave_runner.core.orchestrator._is_package_functional", lambda p: False)
+    config = RunConfig(parallel_scheme="feature")
+    with pytest.warns(UserWarning, match="--parallel"):
+        build_behave_command(config)
+
+
+def test_report_format_missing_package_warns(monkeypatch) -> None:
+    """--format json without behave-modern-json-report should warn on fallback."""
+    monkeypatch.setattr("behave_runner.core.orchestrator.is_installed", lambda p: False)
+    config = RunConfig(fmt="json")
+    with pytest.warns(UserWarning, match="behave_modern_json_report"):
+        cmd = build_behave_command(config)
+    assert "--format" in cmd
+    assert "json" in cmd
+
+
+# --- Regression: RunConfig validates shard format ---
+
+
+def test_run_config_invalid_shard_rejected() -> None:
+    """RunConfig should reject malformed shard values at construction."""
+    with pytest.raises(ValueError, match="Invalid shard"):
+        RunConfig(shard="not-a-shard")
+
+
+def test_run_config_shard_out_of_range_rejected() -> None:
+    """RunConfig should reject shard index greater than the total."""
+    with pytest.raises(ValueError, match="Invalid shard"):
+        RunConfig(shard="4/3")
+
+
+# --- Regression: collect_scenarios accepts str paths and dedupes files ---
+
+
+def test_collect_scenarios_accepts_str_paths(tmp_path: Path) -> None:
+    """collect_scenarios should accept plain strings, not crash on .is_dir()."""
+    from behave_runner.core.features import collect_scenarios
+
+    feature_dir = tmp_path / "features"
+    feature_dir.mkdir()
+    (feature_dir / "x.feature").write_text("Feature: F\n\n  Scenario: S\n    Given a step\n")
+    result = collect_scenarios([str(feature_dir)])
+    assert len(result) == 1
+    assert result[0]["scenario"] == "S"
+
+
+def test_collect_scenarios_dedupes_overlapping_paths(tmp_path: Path) -> None:
+    """Overlapping feature paths must not duplicate scenarios."""
+    from behave_runner.core.features import collect_scenarios
+
+    feature_dir = tmp_path / "features"
+    sub = feature_dir / "sub"
+    sub.mkdir(parents=True)
+    (sub / "x.feature").write_text("Feature: F\n\n  Scenario: S\n    Given a step\n")
+    result = collect_scenarios([feature_dir, sub])
+    assert len(result) == 1
+
+
+# --- Regression: find_latest_report on non-directory ---
+
+
+def test_find_latest_report_on_file_returns_none(tmp_path: Path) -> None:
+    """find_latest_report should return None, not crash, when given a file."""
+    from behave_runner.core.output import find_latest_report
+
+    f = tmp_path / "not_a_dir.txt"
+    f.write_text("x")
+    assert find_latest_report(f) is None
+
+
+# --- Regression: config init/set tolerate commented or spaced headers ---
+
+
+def test_config_init_no_duplicate_header_with_comment(tmp_path: Path, monkeypatch) -> None:
+    """config init must not append a second [tool.behave-runner] when the
+    existing header has a trailing comment."""
+    import tomllib
+
+    p = tmp_path / "pyproject.toml"
+    p.write_text('[project]\nname = "x"\n\n[tool.behave-runner] # main config\n')
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(app, ["config", "init"])
+    assert "already exists" in result.output
+    # File must still parse and contain exactly one header
+    text = p.read_text()
+    tomllib.loads(text)
+    assert text.count("[tool.behave-runner]") == 1
+
+
+def test_config_init_no_duplicate_header_spaced(tmp_path: Path, monkeypatch) -> None:
+    """config init must detect [ tool.behave-runner ] with inner spacing."""
+    import tomllib
+
+    p = tmp_path / "pyproject.toml"
+    p.write_text('[project]\nname = "x"\n\n[ tool.behave-runner ]\n')
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(app, ["config", "init"])
+    assert "already exists" in result.output
+    text = p.read_text()
+    tomllib.loads(text)
+    assert "[tool.behave-runner]" not in text
+
+
+def test_config_set_without_section_creates_it(tmp_path: Path, monkeypatch) -> None:
+    """config set should create the section when pyproject lacks it."""
+    p = tmp_path / "pyproject.toml"
+    p.write_text('[project]\nname = "x"\n')
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(app, ["config", "set", "parallel", "4"])
+    assert result.exit_code == 0
+    import tomllib
+
+    data = tomllib.loads(p.read_text())
+    assert data["tool"]["behave-runner"]["parallel"] == 4
+
+
+def test_config_set_no_trailing_newline(tmp_path: Path, monkeypatch) -> None:
+    """config set on a file without a trailing newline must not merge lines."""
+    import tomllib
+
+    p = tmp_path / "pyproject.toml"
+    p.write_text("[tool.behave-runner]\nparallel = 2")  # no trailing newline
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(app, ["config", "set", "retries", "3"])
+    assert result.exit_code == 0
+    data = tomllib.loads(p.read_text())
+    assert data["tool"]["behave-runner"]["retries"] == 3
+    assert data["tool"]["behave-runner"]["parallel"] == 2
+
+
+def test_config_set_header_with_comment_boundary(tmp_path: Path, monkeypatch) -> None:
+    """config set must stop at a section boundary even with trailing comments."""
+    import tomllib
+
+    p = tmp_path / "pyproject.toml"
+    p.write_text(
+        "[tool.behave-runner]\nparallel = 2\n[tool.ruff] # linter config\nline-length = 100\n"
+    )
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(app, ["config", "set", "retries", "5"])
+    assert result.exit_code == 0
+    data = tomllib.loads(p.read_text())
+    assert data["tool"]["behave-runner"]["retries"] == 5
+    # Key must land inside behave-runner, not after the ruff header
+    assert "retries" not in data["tool"]["ruff"]
+
+
+def test_config_set_from_subdirectory(tmp_path: Path, monkeypatch) -> None:
+    """config set should find pyproject.toml at the project root from a subdir."""
+    p = tmp_path / "pyproject.toml"
+    p.write_text("[tool.behave-runner]\nparallel = 2\n")
+    subdir = tmp_path / "tests" / "nested"
+    subdir.mkdir(parents=True)
+    monkeypatch.chdir(subdir)
+    result = runner.invoke(app, ["config", "set", "retries", "7"])
+    assert result.exit_code == 0
+    assert "retries = 7" in p.read_text()
+
+
+def test_config_set_non_utf8_pyproject(tmp_path: Path, monkeypatch) -> None:
+    """config set should show a clean error on non-UTF-8 pyproject.toml."""
+    p = tmp_path / "pyproject.toml"
+    p.write_bytes(b"\xff\xfe invalid")
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(app, ["config", "set", "parallel", "4"])
+    assert result.exit_code == 2
+    assert "UTF-8" in result.output or "decode" in result.output.lower()
+
+
+def test_load_config_from_subdirectory(tmp_path: Path, monkeypatch) -> None:
+    """load_config should find config at the project root from a subdirectory."""
+    from behave_runner.core.config import load_config
+
+    (tmp_path / "pyproject.toml").write_text(
+        '[project]\nname = "x"\n\n[tool.behave-runner]\nparallel = 3\n'
+    )
+    subdir = tmp_path / "sub" / "deep"
+    subdir.mkdir(parents=True)
+    monkeypatch.chdir(subdir)
+    config = load_config()
+    assert config.get("parallel") == 3
+
+
+def test_load_config_non_utf8_pyproject(tmp_path: Path) -> None:
+    """load_config should raise ConfigError (not UnicodeDecodeError) on bad UTF-8."""
+    import pytest as _pytest
+
+    from behave_runner.core.config import load_config
+    from behave_runner.exceptions import ConfigError
+
+    (tmp_path / "pyproject.toml").write_bytes(b"\xff\xfe invalid")
+    with _pytest.raises(ConfigError):
+        load_config(tmp_path)
+
+
+# --- Regression: stderr for diagnostics, clean stdout for machine output ---
+
+
+def test_select_json_diagnostics_go_to_stderr(tmp_path: Path, monkeypatch) -> None:
+    """select --format json must keep stdout as pure JSON.
+
+    Warnings about skipped paths go to stderr so the JSON can be piped.
+    """
+    import json as json_module
+
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(app, ["select", "--format", "json", "missing-dir-xyz"])
+    assert result.exit_code == 0
+    # stdout must be parseable JSON (the logger warning went to stderr)
+    parsed = json_module.loads(result.stdout)
+    assert parsed == []
+
+
+def test_errors_written_to_stderr(tmp_path: Path, monkeypatch) -> None:
+    """Error messages must go to stderr, not stdout."""
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(app, ["select", "--format", "xml"])
+    assert result.exit_code == 2
+    assert "Unknown format" in result.stderr
+    assert "Unknown format" not in result.stdout
+
+
+# --- Regression: impact --run resolves the features directory ---
+
+
+def test_impact_resolve_features_path() -> None:
+    """_resolve_features_path should prefer <root>/features when it exists."""
+    from behave_runner.commands.impact import _resolve_features_path
+
+    assert _resolve_features_path("tests/fixtures/full").endswith("features")
+    # A path that IS the features dir is returned as-is
+    assert _resolve_features_path("tests/fixtures/minimal/features").endswith("features")
+    # Nonexistent path falls back to itself
+    assert _resolve_features_path("missing-xyz") == "missing-xyz"
+
+
+def test_impact_run_uses_features_dir(monkeypatch) -> None:
+    """impact --run should run behave on <root>/features, not the root itself.
+
+    Behave resolves steps relative to the features path; passing the project
+    root fails with 'No steps directory' on the conventional layout.
+    """
+    from unittest.mock import MagicMock
+    from unittest.mock import patch as _patch
+
+    captured = []
+
+    def fake_run(config):
+        captured.append(config.features)
+        return 0
+
+    doctor_output = '{"diagnostics": [{"metadata": {"scenario": "S1"}}]}'
+    mock_result = MagicMock(returncode=0, stdout=doctor_output)
+    with (
+        _patch("behave_runner.core.deps.is_installed", return_value=True),
+        _patch("behave_runner.commands.impact.subprocess.run", return_value=mock_result),
+        _patch("behave_runner.commands.impact.run", side_effect=fake_run),
+    ):
+        result = runner.invoke(app, ["impact", "tests/fixtures/full", "--run"])
+    assert result.exit_code == 0
+    assert captured
+    assert all(f[0].endswith("features") for f in captured)
+
+
+def test_impact_run_dedupes_scenario_names(monkeypatch) -> None:
+    """impact --run must not run the same scenario twice.
+
+    behave --name already matches every scenario with that name, so duplicate
+    names in the doctor output only waste runs.
+    """
+    from unittest.mock import MagicMock
+    from unittest.mock import patch as _patch
+
+    runs = []
+
+    def fake_run(config):
+        runs.append(config.name[0])
+        return 0
+
+    doctor_output = (
+        '{"diagnostics": ['
+        '{"metadata": {"scenario": "S1"}},'
+        '{"metadata": {"scenario": "S1"}},'
+        '{"metadata": {"scenario": "S2"}}]}'
+    )
+    mock_result = MagicMock(returncode=0, stdout=doctor_output)
+    with (
+        _patch("behave_runner.core.deps.is_installed", return_value=True),
+        _patch("behave_runner.commands.impact.subprocess.run", return_value=mock_result),
+        _patch("behave_runner.commands.impact.run", side_effect=fake_run),
+    ):
+        result = runner.invoke(app, ["impact", "missing-xyz", "--run"])
+    assert result.exit_code == 0
+    assert len(runs) == 2
+
+
+def test_impact_extract_names_prefers_metadata_scenario() -> None:
+    """metadata.scenario is authoritative over an ambiguous top-level name."""
+    from behave_runner.commands.impact import _extract_scenario_names
+
+    stdout = (
+        '{"diagnostics": [{"name": "rule-violation-x", "metadata": {"scenario": "Real Scenario"}}]}'
+    )
+    assert _extract_scenario_names(stdout) == ["Real Scenario"]
+
+
+# --- Regression: record/report clean errors on unwritable output dir ---
+
+
+def test_record_output_dir_error(tmp_path: Path) -> None:
+    """record should exit 2 cleanly when the output dir cannot be created."""
+    from unittest.mock import patch as _patch
+
+    blocker = tmp_path / "blocker"
+    blocker.write_text("file")
+    with _patch("behave_runner.core.deps.is_installed", return_value=True):
+        result = runner.invoke(app, ["record", "--output", str(blocker / "sub")])
+    assert result.exit_code == 2
+    assert "Error" in result.output
+
+
+def test_report_generate_unwritable_output(tmp_path: Path) -> None:
+    """report generate should exit 2 when output dir cannot be created."""
+    blocker = tmp_path / "blocker"
+    blocker.write_text("file")
+    result = runner.invoke(
+        app, ["report", "generate", "--format", "html", "--output", str(blocker)]
+    )
+    assert result.exit_code == 2
+    assert "Error" in result.output
+
+
+# --- Regression: watcher symlink cycles and find_project_root edge cases ---
+
+
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="Creating symlinks on Windows requires admin privileges",
+)
+def test_watcher_scan_symlink_cycle_terminates(tmp_path: Path) -> None:
+    """Regression: _scan must not loop forever on a directory symlink cycle."""
+    from behave_runner.core.watcher import FileWatcher
+
+    watched = tmp_path / "watched"
+    watched.mkdir()
+    (watched / "a.feature").write_text("Feature: A")
+    (watched / "loop").symlink_to(watched, target_is_directory=True)
+
+    watcher = FileWatcher([watched], on_change=lambda _paths: None)
+    scanned = watcher._scan()
+    assert watched / "a.feature" in scanned
+    # Files reached through the symlinked dir must not be reported.
+    assert all("loop" not in p.parts for p in scanned)
+
+
+def test_find_project_root_relative_start(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Regression: a relative start path must walk real ancestors, not '.'."""
+    from behave_runner.utils import find_project_root
+
+    (tmp_path / "pyproject.toml").write_text("[project]\nname = 'x'\n")
+    nested = tmp_path / "a" / "b"
+    nested.mkdir(parents=True)
+    monkeypatch.chdir(nested)
+    assert find_project_root(Path(".")) == tmp_path
+
+
+def test_find_project_root_file_start(tmp_path: Path) -> None:
+    """Regression: passing a file path should search from its parent dir."""
+    from behave_runner.utils import find_project_root
+
+    (tmp_path / "pyproject.toml").write_text("[project]\nname = 'x'\n")
+    sub = tmp_path / "sub"
+    sub.mkdir()
+    marker = sub / "marker.txt"
+    marker.write_text("x")
+    assert find_project_root(marker) == tmp_path
+
+
+# --- Regression: collect_scenarios Rule blocks and inherited tags ---
+
+
+def _write_feature(tmp_path: Path, text: str, name: str = "f.feature") -> Path:
+    feat = tmp_path / name
+    feat.write_text(text, encoding="utf-8")
+    return feat
+
+
+def test_collect_scenarios_includes_rule_scenarios(tmp_path: Path) -> None:
+    """Scenarios inside Rule: blocks must be collected, not skipped."""
+    from behave_runner.core.features import collect_scenarios
+
+    feat = _write_feature(
+        tmp_path,
+        "Feature: Auth\n"
+        "  Rule: Login\n"
+        "    Scenario: Valid login\n"
+        "      Given a step\n"
+        "  Scenario: Top level\n"
+        "    Given a step\n",
+    )
+    scenarios = collect_scenarios([feat])
+    names = [s["scenario"] for s in scenarios]
+    assert "Valid login" in names
+    assert "Top level" in names
+
+
+def test_collect_scenarios_inherited_feature_tags(tmp_path: Path) -> None:
+    """Feature-level tags must apply to every scenario (behave semantics)."""
+    from behave_runner.core.features import collect_scenarios
+
+    feat = _write_feature(
+        tmp_path,
+        "@smoke\n"
+        "Feature: Checkout\n"
+        "  Scenario: Pay\n"
+        "    Given a step\n"
+        "  @wip\n"
+        "  Scenario: Draft\n"
+        "    Given a step\n",
+    )
+    by_tag = collect_scenarios([feat], tags=["@smoke"])
+    assert len(by_tag) == 2
+    not_wip = collect_scenarios([feat], tags=["~@wip"])
+    assert [s["scenario"] for s in not_wip] == ["Pay"]
+
+
+def test_collect_scenarios_inherited_rule_tags(tmp_path: Path) -> None:
+    """Rule-level tags apply only to scenarios inside that rule."""
+    from behave_runner.core.features import collect_scenarios
+
+    feat = _write_feature(
+        tmp_path,
+        "Feature: F\n"
+        "  Rule: R\n"
+        "    @ruled\n"
+        "    Scenario: Inside\n"
+        "      Given a step\n"
+        "  Scenario: Outside\n"
+        "    Given a step\n",
+    )
+    ruled = collect_scenarios([feat], tags=["@ruled"])
+    assert [s["scenario"] for s in ruled] == ["Inside"]
+
+
+def test_collect_scenarios_tag_or_list_and_expressions(tmp_path: Path) -> None:
+    """Comma lists are OR-ed; v2 expressions 'and/or/not' work like behave."""
+    from behave_runner.core.features import collect_scenarios
+
+    feat = _write_feature(
+        tmp_path,
+        "Feature: F\n"
+        "  @a\n"
+        "  Scenario: OnlyA\n"
+        "    Given a step\n"
+        "  @b\n"
+        "  Scenario: OnlyB\n"
+        "    Given a step\n"
+        "  @a @b\n"
+        "  Scenario: BothAB\n"
+        "    Given a step\n",
+    )
+    or_result = collect_scenarios([feat], tags=["@a,@b"])
+    assert len(or_result) == 3
+    and_result = collect_scenarios([feat], tags=["@a and @b"])
+    assert [s["scenario"] for s in and_result] == ["BothAB"]
+    not_result = collect_scenarios([feat], tags=["@a and not @b"])
+    assert [s["scenario"] for s in not_result] == ["OnlyA"]
+    # Tags without '@' match too, like behave's --tags=smoke
+    bare = collect_scenarios([feat], tags=["a"])
+    assert len(bare) == 2
+
+
+def test_collect_scenarios_feature_location_line(tmp_path: Path) -> None:
+    """'file.feature:LINE' selects the scenario at that line."""
+    from behave_runner.core.features import collect_scenarios
+
+    feat = _write_feature(
+        tmp_path,
+        "Feature: F\n  Scenario: First\n    Given a step\n  Scenario: Second\n    Given a step\n",
+    )
+    only_second = collect_scenarios([f"{feat}:4"])
+    assert [s["scenario"] for s in only_second] == ["Second"]
+
+
+def test_collect_scenarios_uppercase_suffix(tmp_path: Path) -> None:
+    """An explicit FOO.FEATURE path is accepted (filesystem is case-insensitive on Windows)."""
+    from behave_runner.core.features import collect_scenarios
+
+    feat = _write_feature(
+        tmp_path,
+        "Feature: F\n  Scenario: S\n    Given a step\n",
+        name="UPPER.FEATURE",
+    )
+    scenarios = collect_scenarios([feat])
+    assert [s["scenario"] for s in scenarios] == ["S"]
+
+
+def test_collect_scenarios_dedup_same_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The same file reached via relative and absolute paths is parsed once."""
+    from behave_runner.core.features import collect_scenarios
+
+    feat = _write_feature(
+        tmp_path,
+        "Feature: F\n  Scenario: S\n    Given a step\n",
+    )
+    monkeypatch.chdir(tmp_path)
+    scenarios = collect_scenarios([Path("f.feature"), feat])
+    assert len(scenarios) == 1
+
+
+# --- Regression: behave.ini case, BOM, DEFAULT section ---
+
+
+def test_load_config_ini_profile_name_case_preserved(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Profile names keep their case in behave.ini; config keys stay lowercase."""
+    from behave_runner.core.config import load_config, load_profile
+
+    (tmp_path / "behave.ini").write_text(
+        "[behave-runner]\nprofiles.CI.parallel = 4\n", encoding="utf-8"
+    )
+    monkeypatch.chdir(tmp_path)
+    config = load_config(tmp_path)
+    assert "CI" in config["profiles"]
+    profile = load_profile("CI", tmp_path)
+    assert profile["parallel"] == 4
+
+
+def test_load_config_ini_default_section_not_injected(tmp_path: Path) -> None:
+    """[DEFAULT] keys must not leak into the behave-runner section config."""
+    from behave_runner.core.config import load_config
+
+    (tmp_path / "behave.ini").write_text(
+        "[DEFAULT]\ninjected = yes\n[behave-runner]\nparallel = 2\n",
+        encoding="utf-8",
+    )
+    config = load_config(tmp_path)
+    assert "injected" not in config
+
+
+def test_load_config_pyproject_with_bom(tmp_path: Path) -> None:
+    """pyproject.toml written with a UTF-8 BOM still loads."""
+    from behave_runner.core.config import load_config
+
+    (tmp_path / "pyproject.toml").write_bytes(b"\xef\xbb\xbf[tool.behave-runner]\nparallel = 3\n")
+    config = load_config(tmp_path)
+    assert config["parallel"] == 3
+
+
+def test_load_config_ini_with_bom(tmp_path: Path) -> None:
+    """behave.ini written with a UTF-8 BOM still loads."""
+    from behave_runner.core.config import load_defaults
+
+    (tmp_path / "behave.ini").write_bytes(b"\xef\xbb\xbf[behave-runner]\nparallel = 3\n")
+    config = load_defaults(tmp_path)
+    assert config["parallel"] == 3
+
+
+def test_find_project_root_anchors_behave_ini(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A behave.ini-only project is found from nested subdirectories."""
+    from behave_runner.utils import find_project_root
+
+    (tmp_path / "behave.ini").write_text("[behave-runner]\n", encoding="utf-8")
+    nested = tmp_path / "a" / "b"
+    nested.mkdir(parents=True)
+    monkeypatch.chdir(nested)
+    assert find_project_root() == tmp_path
+
+
+# --- Regression: config set TOML editing edge cases ---
+
+
+def test_config_set_header_inside_multiline_string_safe(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A fake [tool.behave-runner] inside a triple-quoted string must not
+    silently corrupt the file — the edit fails cleanly, file untouched."""
+    monkeypatch.chdir(tmp_path)
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        '[tool.example]\nhelp = """\n[tool.behave-runner]\n"""\n',
+        encoding="utf-8",
+    )
+    before = pyproject.read_text(encoding="utf-8")
+    result = runner.invoke(app, ["config", "set", "retries", "2"])
+    assert result.exit_code == 2
+    assert "Error" in result.output
+    assert pyproject.read_text(encoding="utf-8") == before
+
+
+def test_config_set_replaces_multiline_value(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Replacing a multi-line array consumes the whole value — no orphans."""
+    monkeypatch.chdir(tmp_path)
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        '[tool.behave-runner]\ntags = [\n    "@smoke",\n]\nparallel = 1\n',
+        encoding="utf-8",
+    )
+    result = runner.invoke(app, ["config", "set", "tags", '["@ci"]'])
+    assert result.exit_code == 0
+    import tomllib
+
+    data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
+    assert data["tool"]["behave-runner"]["tags"] == ["@ci"]
+    assert data["tool"]["behave-runner"]["parallel"] == 1
+
+
+def test_config_set_array_item_not_section_end(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An array item line like ["a", "b"], inside a section is not a header."""
+    monkeypatch.chdir(tmp_path)
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        '[tool.behave-runner]\nmatrix = [\n    ["a", "b"],\n]\nparallel = 4\n',
+        encoding="utf-8",
+    )
+    result = runner.invoke(app, ["config", "set", "parallel", "8"])
+    assert result.exit_code == 0
+    import tomllib
+
+    data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
+    assert data["tool"]["behave-runner"]["parallel"] == 8
+
+
+def test_config_set_warns_when_ini_active(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """config set warns when behave.ini holds the active configuration."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "pyproject.toml").write_text("[project]\nname = 'x'\n", encoding="utf-8")
+    (tmp_path / "behave.ini").write_text("[behave-runner]\nretries = 1\n", encoding="utf-8")
+    result = runner.invoke(app, ["config", "set", "retries", "2"])
+    assert "behave.ini" in result.output
+
+
+# --- Regression: report generate requires the report package ---
+
+
+def test_report_generate_missing_package_exits_2(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """report generate --format html without the package fails early."""
+    monkeypatch.chdir(tmp_path)
+    with patch("behave_runner.commands.report.is_installed", return_value=False):
+        result = runner.invoke(app, ["report", "generate", "--format", "html"])
+    assert result.exit_code == 2
+    assert "behave_modern_html_report" in result.output
+
+
+def test_report_generate_json_builtin_warns_but_runs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """--format json without the package warns but still runs (builtin exists)."""
+    monkeypatch.chdir(tmp_path)
+    with (
+        patch("behave_runner.commands.report.is_installed", return_value=False),
+        patch("behave_runner.commands.report.run", return_value=0) as mock_run,
+    ):
+        result = runner.invoke(app, ["report", "generate", "--format", "json"])
+    assert result.exit_code == 0
+    assert "behave_modern_json_report" in result.output
+    mock_run.assert_called_once()
+
+
+# --- Regression: watch validates merged config upfront ---
+
+
+def test_watch_invalid_parallel_rejected_upfront(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """--parallel 0 fails immediately instead of erroring on every change."""
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(app, ["watch", "features", "--parallel", "0"])
+    assert result.exit_code == 2
+    assert "parallel" in result.output
+
+
+# --- Regression: --flaky-report merges with profile retries ---
+
+
+def test_flaky_report_uses_profile_retries(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """--flaky-report works when retries come from the profile, not the CLI."""
+    (tmp_path / "pyproject.toml").write_text(
+        "[tool.behave-runner]\nretries = 3\n", encoding="utf-8"
+    )
+    monkeypatch.chdir(tmp_path)
+    captured = {}
+
+    class FakePopen:
+        def __init__(self, cmd, env=None, **kwargs):
+            captured["env"] = env or {}
+            self.returncode = 0
+            self.pid = 1
+
+        def wait(self, timeout=None):
+            return self.returncode
+
+        def kill(self):
+            pass
+
+    monkeypatch.setattr("behave_runner.core.orchestrator.subprocess.Popen", FakePopen)
+    runner.invoke(app, ["run", "features", "--flaky-report"])
+    assert captured["env"].get("BEHAVE_RETRY_FLAKY_REPORT") == "1"
+
+
+# --- Regression: impact --run surfaces captured stderr ---
+
+
+def test_impact_run_scan_failure_shows_stderr(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A failing doctor scan must show stderr captured for parsing."""
+    from unittest.mock import MagicMock
+
+    monkeypatch.chdir(tmp_path)
+    mock_result = MagicMock()
+    mock_result.returncode = 2
+    mock_result.stdout = ""
+    mock_result.stderr = "doctor exploded"
+    with (
+        patch("behave_runner.commands.impact.check_optional", return_value=True),
+        patch("subprocess.run", return_value=mock_result),
+    ):
+        result = runner.invoke(app, ["impact", "--run", str(tmp_path)])
+    assert result.exit_code == 2
+    assert "doctor exploded" in result.output
+
+
+def test_impact_run_unparseable_output_warns(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Non-empty doctor output that yields no names must warn, not look clean."""
+    from unittest.mock import MagicMock
+
+    monkeypatch.chdir(tmp_path)
+    mock_result = MagicMock()
+    mock_result.returncode = 0
+    mock_result.stdout = "not json at all"
+    mock_result.stderr = ""
+    with (
+        patch("behave_runner.commands.impact.check_optional", return_value=True),
+        patch("subprocess.run", return_value=mock_result),
+    ):
+        result = runner.invoke(app, ["impact", "--run", str(tmp_path)])
+    assert result.exit_code == 0
+    assert "could not parse" in result.output

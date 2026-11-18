@@ -733,7 +733,7 @@ def test_record_rejects_path_traversal_name(
     with patch("behave_runner.commands.record.check_optional", return_value=True):
         result = runner.invoke(app, ["record", "--name", "foo/bar"])
         assert result.exit_code == 2
-        assert "simple file name" in result.stdout
+        assert "simple file name" in result.output
 
 
 # --- impact command regression ---
@@ -745,6 +745,7 @@ def test_impact_run_respects_scan_failure(tmp_path: Path, monkeypatch: pytest.Mo
     mock_result = MagicMock()
     mock_result.returncode = 3
     mock_result.stdout = ""
+    mock_result.stderr = "scan error"
     with (
         patch("behave_runner.commands.impact.check_optional", return_value=True),
         patch("subprocess.run", return_value=mock_result),
@@ -775,7 +776,7 @@ def test_config_show_malformed_pyproject(tmp_path: Path, monkeypatch: pytest.Mon
     monkeypatch.chdir(tmp_path)
     result = runner.invoke(app, ["config", "show"])
     assert result.exit_code == 2
-    assert "Failed to parse" in result.stdout or "Error" in result.stdout
+    assert "Failed to parse" in result.output or "Error" in result.output
 
 
 # --- report command regression ---
@@ -784,7 +785,10 @@ def test_config_show_malformed_pyproject(tmp_path: Path, monkeypatch: pytest.Mon
 def test_report_delegates_to_formatter(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """report generate should run behave with the formatter and return its exit code."""
     monkeypatch.chdir(tmp_path)
-    with patch("behave_runner.commands.report.run", return_value=0) as mock_run:
+    with (
+        patch("behave_runner.commands.report.run", return_value=0) as mock_run,
+        patch("behave_runner.commands.report.is_installed", return_value=True),
+    ):
         result = runner.invoke(
             app,
             [
@@ -806,7 +810,10 @@ def test_report_delegates_to_formatter(tmp_path: Path, monkeypatch: pytest.Monke
 def test_report_handles_os_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """report generate should exit 2 on OSError from behave."""
     monkeypatch.chdir(tmp_path)
-    with patch("behave_runner.commands.report.run", side_effect=OSError("denied")):
+    with (
+        patch("behave_runner.commands.report.run", side_effect=OSError("denied")),
+        patch("behave_runner.commands.report.is_installed", return_value=True),
+    ):
         result = runner.invoke(
             app, ["report", "generate", "--format", "html", "tests/fixtures/minimal"]
         )
@@ -816,7 +823,10 @@ def test_report_handles_os_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 def test_report_file_not_found(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """report generate should exit 2 when behave is not found."""
     monkeypatch.chdir(tmp_path)
-    with patch("behave_runner.commands.report.run", return_value=2):
+    with (
+        patch("behave_runner.commands.report.run", return_value=2),
+        patch("behave_runner.commands.report.is_installed", return_value=True),
+    ):
         result = runner.invoke(
             app, ["report", "generate", "--format", "html", "tests/fixtures/minimal"]
         )
@@ -838,7 +848,7 @@ def test_record_handles_os_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ):
         result = runner.invoke(app, ["record"])
         assert result.exit_code == 2
-        assert "Error running wavexis" in result.stdout
+        assert "Error running wavexis" in result.output
 
 
 # --- impact command edge cases ---
@@ -849,7 +859,7 @@ def test_impact_rejects_invalid_format(tmp_path: Path, monkeypatch: pytest.Monke
     monkeypatch.chdir(tmp_path)
     result = runner.invoke(app, ["impact", "--format", "xml", str(tmp_path)])
     assert result.exit_code == 2
-    assert "Unknown format" in result.stdout
+    assert "Unknown format" in result.output
 
 
 def test_impact_os_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -927,7 +937,7 @@ def test_run_flaky_report_requires_retries(tmp_path: Path, monkeypatch: pytest.M
             ["run", "--flaky-report", str(fixture_path)],
         )
     assert result.exit_code == 0
-    assert "requires --retries" in result.stdout
+    assert "requires --retries" in result.output
 
 
 def test_run_rejects_invalid_shard(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -961,4 +971,4 @@ def test_record_gen_os_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
     ):
         result = runner.invoke(app, ["record"])
         assert result.exit_code == 2
-        assert "Error running behave-gen" in result.stdout
+        assert "Error running behave-gen" in result.output

@@ -63,7 +63,7 @@ def test_impact_without_dep() -> None:
     with patch("behave_runner.core.deps.is_installed", return_value=False):
         result = runner.invoke(app, ["impact", "tests/fixtures/minimal"])
     assert result.exit_code == 2
-    assert "impact requires behave_doctor" in result.stdout
+    assert "impact requires behave_doctor" in result.output
 
 
 def test_impact_default_path() -> None:
@@ -75,7 +75,7 @@ def test_impact_default_path() -> None:
         mock_run.return_value.returncode = 0
         runner.invoke(app, ["impact"])
     cmd = mock_run.call_args[0][0]
-    assert "behave-doctor" in cmd
+    assert "behave-doctor" in cmd[0]
     assert "scan" in cmd
     assert "." in cmd
 
@@ -153,7 +153,7 @@ def test_impact_file_not_found() -> None:
     ):
         result = runner.invoke(app, ["impact", "tests/fixtures/minimal"])
     assert result.exit_code == 2
-    assert "behave-doctor not found" in result.stdout
+    assert "behave-doctor console script not found" in result.output
 
 
 def test_impact_os_error() -> None:
@@ -167,7 +167,7 @@ def test_impact_os_error() -> None:
     ):
         result = runner.invoke(app, ["impact", "tests/fixtures/minimal"])
     assert result.exit_code == 2
-    assert "Error running behave-doctor" in result.stdout
+    assert "Error running behave-doctor" in result.output
 
 
 def test_impact_help() -> None:

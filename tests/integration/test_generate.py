@@ -104,7 +104,7 @@ def test_generate_without_dep() -> None:
     with patch("behave_runner.core.deps.is_installed", return_value=False):
         result = runner.invoke(app, ["generate", "step", "--lib", "http"])
     assert result.exit_code == 2
-    assert "generate requires behave_gen" in result.stdout
+    assert "generate requires behave_gen" in result.output
 
 
 def test_generate_feature_without_dep() -> None:
@@ -112,7 +112,7 @@ def test_generate_feature_without_dep() -> None:
     with patch("behave_runner.core.deps.is_installed", return_value=False):
         result = runner.invoke(app, ["generate", "feature", "Login"])
     assert result.exit_code == 2
-    assert "generate requires behave_gen" in result.stdout
+    assert "generate requires behave_gen" in result.output
 
 
 def test_generate_propagates_exit_code() -> None:
@@ -137,7 +137,7 @@ def test_generate_file_not_found() -> None:
     ):
         result = runner.invoke(app, ["generate", "step", "--lib", "http"])
     assert result.exit_code == 2
-    assert "behave-gen not found" in result.stdout
+    assert "behave-gen console script not found" in result.output
 
 
 def test_generate_os_error() -> None:
@@ -151,7 +151,7 @@ def test_generate_os_error() -> None:
     ):
         result = runner.invoke(app, ["generate", "step", "--lib", "http"])
     assert result.exit_code == 2
-    assert "Error running behave-gen" in result.stdout
+    assert "Error running behave-gen" in result.output
 
 
 def test_generate_help() -> None:

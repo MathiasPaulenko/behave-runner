@@ -851,7 +851,7 @@ def test_run_help() -> None:
     assert "--parallel" in result.stdout
     assert "--shard" in result.stdout
     assert "--retries" in result.stdout
-    assert "--flaky-report" in result.stdout
+    assert "--flaky-report" in result.output
     assert "--priority-order" in result.stdout
     assert "--smoke" in result.stdout
     assert "--fail-fast" in result.stdout

@@ -26,7 +26,7 @@ def test_doctor_without_dep() -> None:
     with patch("behave_runner.core.deps.is_installed", return_value=False):
         result = runner.invoke(app, ["doctor", "tests/fixtures/minimal"])
     assert result.exit_code == 2
-    assert "doctor requires behave_doctor" in result.stdout
+    assert "doctor requires behave_doctor" in result.output
 
 
 def test_doctor_passes_flags_through() -> None:
@@ -39,7 +39,7 @@ def test_doctor_passes_flags_through() -> None:
     assert mock_run.called
     cmd = mock_run.call_args[0][0]
     assert "--fix" in cmd
-    assert "behave-doctor" in cmd
+    assert any("behave-doctor" in arg for arg in cmd)
     assert "tests/fixtures/minimal" in cmd
 
 
@@ -64,7 +64,8 @@ def test_doctor_no_args() -> None:
         mock_run.return_value.returncode = 0
         runner.invoke(app, ["doctor"])
     cmd = mock_run.call_args[0][0]
-    assert cmd == ["behave-doctor"]
+    assert len(cmd) == 1
+    assert "behave-doctor" in cmd[0]
 
 
 def test_doctor_propagates_exit_code() -> None:
@@ -88,7 +89,7 @@ def test_doctor_file_not_found() -> None:
     ):
         result = runner.invoke(app, ["doctor"])
     assert result.exit_code == 2
-    assert "behave-doctor not found" in result.stdout
+    assert "behave-doctor console script not found" in result.output
 
 
 def test_doctor_os_error() -> None:
@@ -102,7 +103,7 @@ def test_doctor_os_error() -> None:
     ):
         result = runner.invoke(app, ["doctor"])
     assert result.exit_code == 2
-    assert "Error running behave-doctor" in result.stdout
+    assert "Error running behave-doctor" in result.output
 
 
 def test_doctor_help() -> None:

@@ -112,7 +112,7 @@ def test_format_without_dep() -> None:
     with patch("behave_runner.core.deps.is_installed", return_value=False):
         result = runner.invoke(app, ["format", "tests/fixtures/minimal/features"])
     assert result.exit_code == 2
-    assert "format requires behave_format" in result.stdout
+    assert "format requires behave_format" in result.output
 
 
 def test_format_file_not_found() -> None:
@@ -126,7 +126,7 @@ def test_format_file_not_found() -> None:
     ):
         result = runner.invoke(app, ["format"])
     assert result.exit_code == 2
-    assert "behave-format not found" in result.stdout
+    assert "behave-format console script not found" in result.output
 
 
 def test_format_os_error() -> None:
@@ -140,7 +140,7 @@ def test_format_os_error() -> None:
     ):
         result = runner.invoke(app, ["format"])
     assert result.exit_code == 2
-    assert "Error running behave-format" in result.stdout
+    assert "Error running behave-format" in result.output
 
 
 def test_format_help() -> None:

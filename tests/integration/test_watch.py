@@ -34,7 +34,7 @@ def test_watch_negative_debounce_exits_2() -> None:
     """Test --debounce with negative value exits with code 2."""
     result = runner.invoke(app, ["watch", "--debounce", "-1"])
     assert result.exit_code == 2
-    assert "non-negative" in result.stdout
+    assert "non-negative" in result.output
 
 
 def test_watch_help_lists_all_options() -> None:

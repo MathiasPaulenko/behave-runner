@@ -89,7 +89,7 @@ def test_record_without_wavexis_dep() -> None:
     with patch("behave_runner.core.deps.is_installed", return_value=False):
         result = runner.invoke(app, ["record"])
     assert result.exit_code == 2
-    assert "record requires wavexis" in result.stdout
+    assert "record requires wavexis" in result.output
 
 
 def test_record_wavexis_file_not_found() -> None:
@@ -103,7 +103,7 @@ def test_record_wavexis_file_not_found() -> None:
     ):
         result = runner.invoke(app, ["record"])
     assert result.exit_code == 2
-    assert "wavexis not found" in result.stdout
+    assert "wavexis console script not found" in result.output
 
 
 def test_record_wavexis_os_error() -> None:
@@ -117,7 +117,7 @@ def test_record_wavexis_os_error() -> None:
     ):
         result = runner.invoke(app, ["record"])
     assert result.exit_code == 2
-    assert "Error running wavexis" in result.stdout
+    assert "Error running wavexis" in result.output
 
 
 def test_record_wavexis_failure_exit_code() -> None:
@@ -129,7 +129,7 @@ def test_record_wavexis_failure_exit_code() -> None:
         mock_run.return_value.returncode = 1
         result = runner.invoke(app, ["record"])
     assert result.exit_code == 1
-    assert "Recording failed" in result.stdout
+    assert "Recording failed" in result.output
 
 
 def test_record_gen_skipped_when_missing(tmp_path: Path) -> None:
@@ -141,8 +141,8 @@ def test_record_gen_skipped_when_missing(tmp_path: Path) -> None:
         mock_run.return_value.returncode = 0
         result = runner.invoke(app, ["record"])
     assert result.exit_code == 0
-    assert "behave-gen not installed" in result.stdout
-    assert "Skipping step generation" in result.stdout
+    assert "behave-gen not installed" in result.output
+    assert "Skipping step generation" in result.output
     assert mock_run.call_count == 1
 
 
@@ -177,12 +177,12 @@ def test_record_gen_file_not_found() -> None:
         raise FileNotFoundError
 
     with (
-        patch("behave_runner.core.deps.is_installed", side_effect=[True, True]),
+        patch("behave_runner.core.deps.is_installed", return_value=True),
         patch("subprocess.run", side_effect=side_effect),
     ):
         result = runner.invoke(app, ["record"])
     assert result.exit_code == 2
-    assert "behave-gen not found" in result.stdout
+    assert "behave-gen console script not found" in result.output
 
 
 def test_record_gen_os_error() -> None:
@@ -202,7 +202,7 @@ def test_record_gen_os_error() -> None:
     ):
         result = runner.invoke(app, ["record"])
     assert result.exit_code == 2
-    assert "Error running behave-gen" in result.stdout
+    assert "Error running behave-gen" in result.output
 
 
 def test_record_gen_propagates_exit_code() -> None:

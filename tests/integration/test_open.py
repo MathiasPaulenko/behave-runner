@@ -17,11 +17,11 @@ runner = CliRunner()
 
 
 def test_open_no_reports(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test open with no reports shows friendly message."""
+    """Test open with no reports exits 1 and shows friendly message."""
     monkeypatch.chdir(tmp_path)
     result = runner.invoke(app, ["open"])
-    assert result.exit_code == 0
-    assert "No reports" in result.stdout
+    assert result.exit_code == 1
+    assert "No reports" in result.output
 
 
 def test_open_with_report(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -41,8 +41,8 @@ def test_open_report_alias(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> N
     """Test open report is alias for open."""
     monkeypatch.chdir(tmp_path)
     result = runner.invoke(app, ["open", "report"])
-    assert result.exit_code == 0
-    assert "No reports" in result.stdout
+    assert result.exit_code == 1
+    assert "No reports" in result.output
 
 
 def test_open_custom_output(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -84,7 +84,7 @@ def test_open_trace_without_dep() -> None:
     with patch("behave_runner.core.deps.is_installed", return_value=False):
         result = runner.invoke(app, ["open", "trace"])
     assert result.exit_code == 2
-    assert "trace requires behave_trace" in result.stdout
+    assert "trace requires behave_trace" in result.output
 
 
 def test_open_trace_with_dep_no_trace_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -97,7 +97,7 @@ def test_open_trace_with_dep_no_trace_file(tmp_path: Path, monkeypatch: pytest.M
         mock_run.return_value.returncode = 0
         result = runner.invoke(app, ["open", "trace"])
     assert result.exit_code == 0
-    assert "trace.json not found" in result.stdout
+    assert "trace.json not found" in result.output
     cmd = mock_run.call_args[0][0]
     assert cmd == ["behave-trace", "show"]
 
@@ -143,7 +143,7 @@ def test_open_trace_file_not_found() -> None:
     ):
         result = runner.invoke(app, ["open", "trace"])
     assert result.exit_code == 2
-    assert "behave-trace not found" in result.stdout
+    assert "behave-trace console script not found" in result.output
 
 
 def test_open_trace_os_error() -> None:
@@ -157,7 +157,7 @@ def test_open_trace_os_error() -> None:
     ):
         result = runner.invoke(app, ["open", "trace"])
     assert result.exit_code == 2
-    assert "Error running behave-trace" in result.stdout
+    assert "Error running behave-trace" in result.output
 
 
 # --- edge cases ---

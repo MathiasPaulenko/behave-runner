@@ -51,11 +51,10 @@ def test_max_failures() -> None:
 
 
 def test_timeout() -> None:
-    """timeout is passed as --timeout CLI flag to behave."""
+    """timeout is enforced as a subprocess timeout, not a behave flag."""
     config = RunConfig(timeout=30)
     cmd = build_behave_command(config)
-    assert "--timeout" in cmd
-    assert "30" in cmd
+    assert "--timeout" not in cmd
 
 
 def test_format_and_outfile() -> None:
