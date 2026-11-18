@@ -63,10 +63,13 @@ jobs:
         run: bandit -r behave_runner -c pyproject.toml
 
       - name: Pip-audit
-        # --skip-editable: the project itself is installed editable; right
-        # after a release PyPI has not indexed the new version yet, so
-        # auditing it would race the package index and fail spuriously.
-        run: pip-audit --strict --desc --skip-editable --timeout 60
+        # Audit the frozen dependency set, excluding editable installs:
+        # the project itself is installed editable, and right after a
+        # release PyPI has not indexed the new version yet, so auditing
+        # it races the package index and fails spuriously.
+        run: |
+          pip freeze --exclude-editable > /tmp/audit-reqs.txt
+          pip-audit --strict --desc -r /tmp/audit-reqs.txt --timeout 60
 
   test:
     name: Test (Python ${{ matrix.python-version }} on ${{ matrix.os }})
