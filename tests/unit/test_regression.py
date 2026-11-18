@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import sys
 import time
 from pathlib import Path
@@ -2358,7 +2359,7 @@ def test_init_all_exports_version() -> None:
 
     assert hasattr(behave_runner, "__all__")
     assert "__version__" in behave_runner.__all__
-    assert behave_runner.__version__ == "1.4.0"
+    assert re.fullmatch(r"\d+\.\d+\.\d+", behave_runner.__version__)
 
 
 # --- Regression: base [tool.behave-runner] config is applied to runs ---

@@ -63,7 +63,10 @@ jobs:
         run: bandit -r behave_runner -c pyproject.toml
 
       - name: Pip-audit
-        run: pip-audit --strict --desc
+        # --skip-editable: the project itself is installed editable; right
+        # after a release PyPI has not indexed the new version yet, so
+        # auditing it would race the package index and fail spuriously.
+        run: pip-audit --strict --desc --skip-editable
 
   test:
     name: Test (Python ${{ matrix.python-version }} on ${{ matrix.os }})

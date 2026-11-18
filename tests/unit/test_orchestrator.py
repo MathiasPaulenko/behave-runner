@@ -149,7 +149,7 @@ def test_run_behave_subprocess_handles_not_found(monkeypatch) -> None:
     def raise_not_found(*args, **kwargs):
         raise FileNotFoundError()
 
-    monkeypatch.setattr("behave_runner.core.orchestrator.subprocess.run", raise_not_found)
+    monkeypatch.setattr("behave_runner.core.orchestrator.subprocess.Popen", raise_not_found)
     assert _run_behave_subprocess(["behave"], {}) == 2
 
 
@@ -169,7 +169,7 @@ def test_run_behave_subprocess_handles_os_error(monkeypatch) -> None:
     def raise_permission(*args, **kwargs):
         raise PermissionError("denied")
 
-    monkeypatch.setattr("behave_runner.core.orchestrator.subprocess.run", raise_permission)
+    monkeypatch.setattr("behave_runner.core.orchestrator.subprocess.Popen", raise_permission)
     assert _run_behave_subprocess(["behave"], {}) == 2
 
 
