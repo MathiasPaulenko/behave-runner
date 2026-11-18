@@ -2,6 +2,102 @@
 
 ## Unreleased
 
+## [1.4.1] - 2026-11-18
+
+### Fixed
+
+- Fixed `--timeout` being forwarded as a native behave CLI flag, which does not
+  exist in behave 1.3.x and made every timed run fail with
+  `unrecognized arguments: --timeout`. The timeout is now enforced at the
+  subprocess layer.
+- Fixed `run()` mutating `os.environ` while executing. behave-specific
+  environment variables are now built into a copied environment passed to the
+  subprocess, so concurrent runs cannot leak or race on global state.
+- Fixed missing warnings when optional packages are absent: `--parallel` /
+  `--parallel-scheme` without `behave-pool`, `--retry` without `behave-retry`,
+  `--priority` without `behave-priority`, and report formatter packages are now
+  surfaced instead of silently degrading.
+- Fixed `RunConfig` accepting invalid shard values (`shard_total <= 0`,
+  `shard_index` out of range); they are now rejected at validation time.
+- Fixed `resolve_executable` missing console scripts installed with
+  `pip install --user` (`%APPDATA%\Python\PythonXY\Scripts` on Windows,
+  `~/.local/bin` on POSIX). This made `doctor`/`impact` fail even when the
+  package was importable.
+- Fixed the "not found" diagnostic for external tools: it now distinguishes a
+  missing package ("install with: pip install X") from an importable package
+  whose console script is missing ("reinstall with: --force-reinstall").
+- Fixed `collect_scenarios` rejecting `str` paths and reporting duplicate
+  scenarios when feature files were reachable through overlapping paths.
+- Fixed `load_config` and `config` not finding `pyproject.toml` when invoked
+  from a subdirectory of the project; both now walk up from the start path.
+- Fixed `load_config` crashing with `UnicodeDecodeError` on non-UTF-8
+  `pyproject.toml` and silently ignoring unreadable `behave.ini` files; both
+  now raise `ConfigError` with context.
+- Fixed `find_latest_report` crashing on `OSError`/non-directory entries and
+  opening reports with a raw filesystem path instead of a `file://` URI.
+- Fixed `config set`/`config init` writing into the wrong TOML section when
+  headers were commented out or the file lacked a trailing newline; edits are
+  now computed in memory, validated as TOML, and preserve comments.
+- Fixed `impact --run` passing the project root to behave, which fails with
+  `No steps directory` under the conventional `features/steps` layout; it now
+  resolves the features directory.
+- Fixed `record` and `report generate` crashing when the output directory
+  cannot be created; both now exit 2 with a clean error.
+- Fixed `watch` failing when configured `features` was a `str` instead of a
+  list, and negative `--debounce`/`--poll` values not being rejected.
+- Fixed the file watcher potentially looping forever on directory symlink
+  cycles (Python < 3.13 `rglob` follows symlinked dirs); `_scan` now uses
+  `os.walk`, which does not follow them.
+- Fixed `find_project_root` not resolving relative start paths and not
+  handling a file path as its `start` argument.
+- Fixed error and diagnostic messages being printed to stdout in several
+  commands (`run`, `watch`, `impact`, `doctor`, `record`, `report`, `config`,
+  `open`); they now go to stderr so stdout stays parseable.
+- Fixed `is_installed` executing module code during the dependency check;
+  it now uses `importlib.util.find_spec`.
+- Fixed `collect_scenarios` missing scenarios inside `Rule:` blocks
+  (`feature.scenarios` excludes them) and ignoring inherited tags. Feature-,
+  rule-, and Examples-level tags now participate in `--tags` filtering, and
+  tag filters support behave's v2 expressions (`and`/`or`/`not`, parentheses)
+  plus comma-separated OR lists with `~` negation.
+- Fixed `collect_scenarios` not understanding behave's `file.feature:LINE`
+  location syntax and rejecting `.FEATURE` paths on case-insensitive
+  filesystems.
+- Fixed a timed-out behave run leaving parallel workers orphaned: the timeout
+  now kills the whole process tree (`taskkill /T` on Windows, `killpg` on
+  POSIX).
+- Fixed `behave.ini` parsing: UTF-8 BOM is tolerated, `[DEFAULT]` keys no
+  longer leak into the `[behave-runner]` section, profile names keep their
+  case (`profiles.CI`), and every other key segment is normalized to
+  lowercase per INI conventions.
+- Fixed `config set` corrupting `pyproject.toml` when a `[tool.behave-runner]`
+  header appeared inside a multiline string, when replacing multiline array
+  values, or when array items looked like section headers; edits are now
+  validated and applied atomically, and `set`/`init` warn when the active
+  config lives in `behave.ini`.
+- Fixed `watch` deferring invalid merged config (e.g. `parallel = 0`) until
+  the first file change; it is now validated upfront.
+- Fixed `report generate` launching behave for formats whose report package
+  is missing; it now fails early with an install hint (`json` keeps its
+  builtin fallback). `report show`/`open` now exit 1 when no report is found
+  instead of exiting 0 silently.
+- Fixed `impact --run` swallowing behave-doctor's stderr on failure and
+  reporting a clean run when the output could not be parsed.
+- Fixed `--flaky-report` being discarded when `retries` came from the
+  configuration profile instead of the CLI flag.
+- Fixed the watcher scanning generated artifacts (`reports/`, `.git/`,
+  caches); those directories are now ignored.
+- Fixed `select` and `list` crashing with `UnicodeEncodeError` on consoles
+  with legacy encodings (e.g. cp1252) when scenario names contain emoji or
+  CJK characters; stdout is now reconfigured to replace unencodable chars.
+
+### Changed
+
+- Relaxed the `typer` pin to `<0.30` (verified against 0.29.x), added the
+  Python 3.14 classifier, and declared `license-files` in `pyproject.toml`.
+- Removed unused `Console` instances from the `generate`, `steps`, and `trace`
+  command modules.
+
 ## [1.4.0] - 2026-10-05
 
 ### Fixed

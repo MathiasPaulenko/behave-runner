@@ -6,6 +6,63 @@ at the repository root.
 
 ## Unreleased
 
+## [1.4.1] - 2026-11-18
+
+### Fixed
+
+- Fixed `--timeout` being forwarded as a native behave flag (unsupported in
+  behave 1.3.x); it is now enforced at the subprocess layer.
+- Fixed `run()` mutating `os.environ`; subprocesses now receive a copied env.
+- Fixed missing warnings for `--parallel`/`--parallel-scheme` without
+  `behave-pool`, `--retry` without `behave-retry`, `--priority` without
+  `behave-priority`, and absent report formatter packages.
+- Fixed `RunConfig` accepting invalid shard values.
+- Fixed `resolve_executable` missing user-site console scripts
+  (`%APPDATA%\Python\PythonXY\Scripts`, `~/.local/bin`).
+- Fixed external-tool "not found" messages to distinguish a missing package
+  from an importable package with a missing console script.
+- Fixed `collect_scenarios` rejecting `str` paths and duplicating scenarios
+  reachable through overlapping paths.
+- Fixed `load_config`/`config` not finding `pyproject.toml` from
+  subdirectories.
+- Fixed `load_config` crashing on non-UTF-8 `pyproject.toml` and silently
+  ignoring unreadable `behave.ini` files.
+- Fixed `find_latest_report` crashing on `OSError` and reports being opened
+  without a `file://` URI.
+- Fixed `config set`/`config init` corrupting `pyproject.toml` around
+  commented headers or a missing trailing newline.
+- Fixed `impact --run` failing with `No steps directory` under the
+  conventional `features/steps` layout.
+- Fixed `record`/`report generate` crashing on unwritable output dirs.
+- Fixed `watch` failing on `features` given as a `str` and accepting
+  negative `--debounce`/`--poll`.
+- Fixed the watcher looping forever on directory symlink cycles.
+- Fixed `find_project_root` with relative or file `start` paths.
+- Fixed diagnostics being printed to stdout instead of stderr in several
+  commands.
+- Fixed `is_installed` executing module code; it now uses `find_spec`.
+- Fixed `collect_scenarios` missing `Rule:` scenarios and inherited tags;
+  tag filters now support behave v2 expressions and `file.feature:LINE`.
+- Fixed timed-out runs leaving orphaned parallel workers; the timeout now
+  kills the whole process tree.
+- Fixed `behave.ini` BOM handling, `[DEFAULT]` leakage, and profile-name
+  case (`profiles.CI` now round-trips).
+- Fixed `config set` corrupting `pyproject.toml` on fake headers inside
+  multiline strings or multiline array values; `set`/`init` warn when the
+  active config lives in `behave.ini`.
+- Fixed `watch` deferring invalid merged config until the first change.
+- Fixed `report generate` launching behave for formats whose package is
+  missing; `report show`/`open` now exit 1 when no report is found.
+- Fixed `impact --run` swallowing doctor's stderr and unparseable output.
+- Fixed `--flaky-report` being discarded when `retries` came from a profile.
+- Fixed the watcher scanning generated artifacts (`reports/`, `.git/`).
+- Fixed `select`/`list` crashing on non-UTF-8 consoles with emoji/CJK
+  scenario names.
+
+### Changed
+
+- Relaxed the `typer` pin to `<0.30` and added the Python 3.14 classifier.
+
 ## [1.4.0] - 2026-10-05
 
 ### Fixed
