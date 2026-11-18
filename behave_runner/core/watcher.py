@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import time
 from collections.abc import Callable
 from pathlib import Path
@@ -18,10 +19,14 @@ class FileWatcher:
         paths: list[Path],
         on_change: Callable[[list[Path]], None],
         debounce_ms: int = 500,
+        ignore: Callable[[Path], bool] | None = None,
     ) -> None:
         self._paths = paths
         self._on_change = on_change
         self._debounce = debounce_ms / 1000.0
+        # Paths the watcher should never react to — e.g. artifacts produced
+        # by the run itself, which would otherwise cause a re-run loop.
+        self._ignore = ignore
         self._mtimes: dict[Path, float] = {}
         self._last_trigger = 0.0
         self._running = False
@@ -32,17 +37,37 @@ class FileWatcher:
         for path in self._paths:
             try:
                 if path.is_file():
-                    result[path] = path.stat().st_mtime
+                    result[path] = path.stat().st_mtime_ns
                 elif path.is_dir():
-                    for f in path.rglob("*"):
-                        try:
-                            if f.is_file():
-                                result[f] = f.stat().st_mtime
-                        except OSError:
-                            logger.debug("Could not stat %s during scan", f)
+                    # os.walk does not follow directory symlinks (followlinks=False
+                    # by default), which avoids infinite recursion on symlink
+                    # cycles — Path.rglob would loop forever on Python < 3.13.
+                    for root, dirs, files in os.walk(path):
+                        dirs[:] = [
+                            d
+                            for d in dirs
+                            if d != "__pycache__" and not self._ignored(Path(root) / d)
+                        ]
+                        for name in files:
+                            f = Path(root) / name
+                            if f.suffix in (".pyc", ".pyo") or self._ignored(f):
+                                continue
+                            try:
+                                result[f] = f.stat().st_mtime_ns
+                            except OSError:
+                                logger.debug("Could not stat %s during scan", f)
             except OSError:
                 logger.debug("Could not scan %s", path)
         return result
+
+    def _ignored(self, path: Path) -> bool:
+        """Check if a path is excluded by the caller-provided predicate."""
+        if self._ignore is None:
+            return False
+        try:
+            return self._ignore(path)
+        except OSError:
+            return False
 
     def _detect_changes(self) -> list[Path]:
         """Detect changed, added, or deleted files since last scan. Update internal state."""

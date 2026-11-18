@@ -10,6 +10,7 @@ from rich.console import Console
 from behave_runner.utils import open_in_browser
 
 console = Console()
+err_console = Console(stderr=True)
 
 
 def ensure_output_dir(path: Path) -> Path:
@@ -25,10 +26,14 @@ def ensure_output_dir(path: Path) -> Path:
 
 def find_latest_report(output_dir: Path) -> Path | None:
     """Find the most recently modified report file in output_dir."""
-    if not output_dir.exists():
+    if not output_dir.is_dir():
+        return None
+    try:
+        entries = list(output_dir.iterdir())
+    except OSError:
         return None
     candidates: list[tuple[float, Path]] = []
-    for f in output_dir.iterdir():
+    for f in entries:
         try:
             if f.is_file():
                 candidates.append((f.stat().st_mtime, f))
@@ -64,11 +69,16 @@ def clean_output_dir(path: Path) -> None:
             continue
 
 
-def open_latest_report(output_dir: Path) -> None:
-    """Find and open the latest report in the browser."""
+def open_latest_report(output_dir: Path) -> bool:
+    """Find and open the latest report in the browser.
+
+    Returns True when a report was found and opened; False otherwise so
+    callers can exit non-zero — "nothing to open" must not look like success.
+    """
     report_file = find_latest_report(output_dir)
     if report_file is None:
-        console.print("[yellow]No reports found.[/yellow]")
-        return
+        err_console.print("[yellow]No reports found.[/yellow]")
+        return False
     console.print(f"[green]Opening: {report_file}[/green]")
-    open_in_browser(str(report_file.resolve()))
+    open_in_browser(report_file.resolve().as_uri())
+    return True

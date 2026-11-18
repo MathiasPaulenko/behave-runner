@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import contextlib
 import importlib
 import os
 import re
+import signal
 import subprocess  # nosec B404
 import sys
 import warnings
@@ -14,7 +16,7 @@ from rich.console import Console
 
 from behave_runner.core.deps import is_installed
 
-console = Console()
+console = Console(stderr=True)
 
 
 def _is_package_functional(package: str) -> bool:
@@ -30,7 +32,9 @@ def _is_package_functional(package: str) -> bool:
     if mod is None:
         try:
             mod = importlib.import_module(package)
-        except ImportError:
+        except Exception:
+            # A broken optional package (SyntaxError, import-time crash)
+            # must degrade to "not functional", not propagate a traceback.
             return False
     paths = list(getattr(mod, "__path__", []))
     if not paths:
@@ -155,6 +159,8 @@ class RunConfig:
             raise ValueError("RunConfig.parallel_balance cannot be an empty string")
         if self.parallel_timing_file == "":
             raise ValueError("RunConfig.parallel_timing_file cannot be an empty string")
+        if self.shard is not None:
+            validate_shard(self.shard)
 
 
 def build_behave_command(config: RunConfig) -> list[str]:
@@ -186,8 +192,8 @@ def build_behave_command(config: RunConfig) -> list[str]:
                 stacklevel=2,
             )
         cmd.extend(["--stop"])
-    if config.timeout is not None:
-        cmd.extend(["--timeout", str(config.timeout)])
+    # Note: config.timeout is NOT a behave flag (behave has no --timeout);
+    # it is enforced as a subprocess timeout in run().
     for name in config.name:
         cmd.extend(["--name", name])
     if config.no_color:
@@ -214,9 +220,24 @@ def build_behave_command(config: RunConfig) -> list[str]:
                 f"ignoring --parallel={config.parallel}.",
                 stacklevel=2,
             )
+    elif (
+        config.parallel_scheme is not None
+        or config.parallel_balance is not None
+        or config.parallel_timing_file is not None
+    ):
+        warnings.warn(
+            "--parallel-scheme/--parallel-balance/--parallel-timing-file require "
+            "--parallel > 1 with behave-pool installed; ignoring.",
+            stacklevel=2,
+        )
 
     # Shard: passed via BEHAVE_POOL_SHARD env var (set in _behave_env_vars),
     # not as a CLI flag — behave does not support --shard natively.
+    if config.shard is not None and not _is_package_functional("behave_pool"):
+        warnings.warn(
+            f"--shard requires behave-pool to be installed; ignoring --shard {config.shard}.",
+            stacklevel=2,
+        )
 
     # Format: either a report formatter or a behave built-in
     # Only use the entry point name if the package is installed;
@@ -228,8 +249,16 @@ def build_behave_command(config: RunConfig) -> list[str]:
             if is_installed(fmt_package):
                 cmd.extend(["--format", formatter])
             else:
-                # Package not installed — pass through the raw name
-                # in case behave has a built-in with this name
+                # Package not installed — pass the raw name through so
+                # behave fails with its own "unknown formatter" error if
+                # it does not provide one, and warn that the requested
+                # report format will not be produced.
+                warnings.warn(
+                    f"--format {config.fmt} requires {fmt_package}, which is not "
+                    f"installed. Install with: pip install "
+                    f"behave-runner[report-{config.fmt}]",
+                    stacklevel=2,
+                )
                 cmd.extend(["--format", config.fmt])
         else:
             # Pass through as-is for behave built-in formats (plain, json, etc.)
@@ -271,6 +300,11 @@ def validate_shard(shard: str) -> None:
         raise ValueError(f"Invalid shard: {shard}. i must be 1..n.")
 
 
+def report_formatter_package(fmt: str) -> str | None:
+    """Return the package that provides a report format, or None."""
+    return _REPORT_PACKAGES.get(fmt)
+
+
 def _resolve_formatter(fmt: str) -> str | None:
     """Resolve a report format name to its behave formatter class path.
 
@@ -298,12 +332,25 @@ def _behave_env_vars(config: RunConfig) -> dict[str, str]:
     env: dict[str, str] = {}
     if config.scenario_timeout is not None:
         env["BEHAVE_SCENARIO_TIMEOUT"] = str(config.scenario_timeout)
-    # Note: --timeout and --stop are passed as native behave CLI flags
-    # in build_behave_command, not as env vars (no library reads them).
+    # Note: --stop is passed as a native behave CLI flag and config.timeout
+    # is enforced as a subprocess timeout in run(); neither is an env var.
+    retry_requested = (config.retries is not None and config.retries > 0) or config.flaky_report
+    if retry_requested and not is_installed("behave_retry"):
+        warnings.warn(
+            "--retries/--flaky-report require behave-retry to be installed; "
+            "ignoring. Install with: pip install behave-runner[retry]",
+            stacklevel=2,
+        )
     if config.retries is not None and config.retries > 0:
         env["BEHAVE_RETRY_MAX_RETRIES"] = str(config.retries)
     if config.flaky_report:
         env["BEHAVE_RETRY_FLAKY_REPORT"] = "1"
+    if (config.priority_order or config.fail_fast) and not is_installed("behave_priority"):
+        warnings.warn(
+            "--priority-order/--fail-fast require behave-priority to be installed; "
+            "ignoring. Install with: pip install behave-runner[priority]",
+            stacklevel=2,
+        )
     if config.priority_order:
         env["BEHAVE_PRIORITY_ORDER"] = "1"
     if config.fail_fast:
@@ -313,21 +360,55 @@ def _behave_env_vars(config: RunConfig) -> dict[str, str]:
     return env
 
 
-def _run_behave_subprocess(cmd: list[str], env: dict[str, str]) -> int:
+def _kill_process_tree(proc: subprocess.Popen[bytes]) -> None:
+    """Kill a behave process and its children (parallel workers)."""
+    if sys.platform == "win32":
+        subprocess.run(  # noqa: S603  # nosec B603 B607
+            ["taskkill", "/F", "/T", "/PID", str(proc.pid)],
+            check=False,
+            capture_output=True,
+        )
+        return
+    try:
+        os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+    except (ProcessLookupError, PermissionError, OSError):
+        with contextlib.suppress(OSError):
+            proc.kill()
+
+
+def _run_behave_subprocess(cmd: list[str], env: dict[str, str], timeout: int | None = None) -> int:
     """Run a behave subprocess command. Return exit code.
 
-    Handles FileNotFoundError when behave is not installed and other
-    OSError subclasses (e.g. PermissionError) gracefully.
+    Handles missing executables, OSError subclasses (e.g. PermissionError),
+    and a global timeout that kills the whole behave process tree —
+    subprocess.run's timeout only kills the direct child, orphaning
+    parallel workers spawned by behave-pool.
     """
     try:
-        result = subprocess.run(cmd, check=False, env=env)  # noqa: S603  # nosec B603
-        return result.returncode
+        if sys.platform == "win32":
+            # New group so taskkill /T can reach the whole tree.
+            proc = subprocess.Popen(  # noqa: S603  # nosec B603
+                cmd,
+                env=env,
+                creationflags=getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0),
+            )
+        else:
+            proc = subprocess.Popen(  # noqa: S603  # nosec B603
+                cmd, env=env, start_new_session=True
+            )
     except FileNotFoundError:
-        console.print("[red]Error: behave not found. Install with: pip install behave[/red]")
+        console.print(f"[red]Error: could not start process {cmd[0]!r}[/red]")
         return 2
     except OSError as e:
         console.print(f"[red]Error running behave: {e}[/red]")
         return 2
+    try:
+        return proc.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        _kill_process_tree(proc)
+        proc.wait()
+        console.print(f"[red]Error: behave run timed out after {timeout} seconds.[/red]")
+        return 124
 
 
 def run(config: RunConfig) -> int:
@@ -336,17 +417,12 @@ def run(config: RunConfig) -> int:
     All optional features (parallel, trace, report formatters, retries,
     priority) are passed to behave via command-line flags and environment
     variables. Behave handles them natively or via installed packages.
+
+    ``config.timeout`` is a global timeout in seconds for the whole run;
+    ``0`` means no timeout. When it expires the behave process is killed
+    and the run exits with code 124.
     """
-    behave_vars = _behave_env_vars(config)
-    saved = {k: os.environ.get(k) for k in behave_vars}
-    os.environ.update(behave_vars)
-    try:
-        cmd = build_behave_command(config)
-        env = _build_env(config)
-        return _run_behave_subprocess(cmd, env)
-    finally:
-        for key, old_value in saved.items():
-            if old_value is None:
-                os.environ.pop(key, None)
-            else:
-                os.environ[key] = old_value
+    cmd = build_behave_command(config)
+    env = _build_env(config)
+    timeout = config.timeout if config.timeout else None
+    return _run_behave_subprocess(cmd, env, timeout)

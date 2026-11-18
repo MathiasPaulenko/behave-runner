@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from behave_runner.exceptions import ConfigError
+from behave_runner.utils import find_project_root
 
 _INT_KEYS = {
     "parallel",
@@ -51,17 +52,26 @@ class _BadIntegerError(_BadConfigValueError):
 
 
 def load_config(project_path: Path | None = None) -> dict[str, Any]:
-    """Load [tool.behave-runner] config from pyproject.toml or behave.ini."""
-    root = project_path or Path.cwd()
+    """Load [tool.behave-runner] config from pyproject.toml or behave.ini.
+
+    Config files are searched from the project root (nearest ancestor with a
+    pyproject.toml), matching how behave itself discovers configuration.
+    """
+    root = project_path or find_project_root()
     pyproject = root / "pyproject.toml"
     if pyproject.exists():
         try:
-            with pyproject.open("rb") as f:
-                data = tomllib.load(f)
-        except tomllib.TOMLDecodeError as e:
-            raise ConfigError(f"Failed to parse {pyproject}: {e}") from e
+            raw = pyproject.read_bytes()
         except OSError as e:
             raise ConfigError(f"Failed to read {pyproject}: {e}") from e
+        # Some Windows editors write a UTF-8 BOM; TOML parsers reject it.
+        raw = raw.removeprefix(b"\xef\xbb\xbf")
+        try:
+            data = tomllib.loads(raw.decode("utf-8"))
+        except tomllib.TOMLDecodeError as e:
+            raise ConfigError(f"Failed to parse {pyproject}: {e}") from e
+        except UnicodeDecodeError as e:
+            raise ConfigError(f"Failed to decode {pyproject} as UTF-8: {e}") from e
         tool_section = data.get("tool")
         if tool_section is None:
             config = {}
@@ -76,12 +86,20 @@ def load_config(project_path: Path | None = None) -> dict[str, Any]:
     behave_ini = root / "behave.ini"
     if behave_ini.exists():
         parser = configparser.ConfigParser(interpolation=None)
+        # Preserve key case so profile names like 'profiles.CI' keep their
+        # spelling; config key segments are lowercased later on purpose.
+        parser.optionxform = str  # type: ignore[method-assign, assignment]
         try:
-            parser.read(behave_ini, encoding="utf-8")
+            # utf-8-sig tolerates a BOM from Windows editors.
+            read_ok = parser.read(behave_ini, encoding="utf-8-sig")
         except (configparser.Error, UnicodeDecodeError) as e:
             raise ConfigError(f"Failed to parse {behave_ini}: {e}") from e
+        if not read_ok:
+            # parser.read silently skips files it cannot open
+            raise ConfigError(f"Failed to read {behave_ini}")
         if parser.has_section("behave-runner"):
-            flat = dict(parser.items("behave-runner"))
+            defaults = set(parser.defaults())
+            flat = {k: v for k, v in parser.items("behave-runner") if k not in defaults}
             return _ini_flat_to_nested(flat)
     return {}
 
@@ -94,7 +112,13 @@ def _ini_flat_to_nested(flat: dict[str, str]) -> dict[str, Any]:
     """
     nested: dict[str, Any] = {}
     for key, value in flat.items():
-        parts = key.split(".")
+        raw_parts = key.split(".")
+        # INI keys are case-insensitive per configparser convention, so every
+        # segment normalizes to lowercase — except the profile name in
+        # profiles.<name>.<key>, which users reference verbatim in --profile.
+        parts = [p.lower() for p in raw_parts]
+        if len(parts) >= 3 and parts[0] == "profiles":
+            parts[1] = raw_parts[1]
         current = nested
         for depth, part in enumerate(parts[:-1]):
             prefix = ".".join(parts[: depth + 1])
@@ -192,7 +216,7 @@ def _normalize_bool(key: str, value: Any) -> bool:
     """Normalize a boolean profile value."""
     if isinstance(value, bool):
         return value
-    if isinstance(value, int) and not isinstance(value, bool):
+    if isinstance(value, int):
         return value != 0
     if isinstance(value, str):
         lowered = value.strip().lower()
